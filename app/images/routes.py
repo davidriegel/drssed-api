@@ -15,10 +15,18 @@ def generate_image():
     
     file = request.files.get("file", None)
     try:
-        processed_dict = image_manager.process_image_preview(file)
+        image_url, image_id, image_color, image_category, image_seasons, image_tags = image_manager.process_image_preview(file)
+        
     except FileTooLargeError as e:
         return jsonify({"error": str(e)}), 413
     except ImageUnclearError as e:
         return jsonify({"error": str(e)}), 422
 
-    return jsonify(processed_dict), 201
+    return jsonify({
+            "image_url": image_url,
+            "image_id": image_id,
+            "image_color": image_color,
+            "image_category": image_category,
+            "image_seasons": image_seasons,
+            "image_tags": image_tags
+        }, 201)

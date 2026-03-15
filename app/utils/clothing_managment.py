@@ -9,8 +9,8 @@ from app.utils.exceptions import ClothingNotFoundError, ClothingImageInvalidErro
 from typing import Optional
 from mysql.connector.errors import IntegrityError
 from app.models.clothing import Clothing, ClothingCategory, ClothingSeason, ClothingTags
-from app.utils.authentication_managment import authentication_manager
 from app.utils.logging import get_logger
+from app.utils.helpers import helper
 from app.utils.image_managment import image_manager
 import os
 
@@ -32,6 +32,8 @@ class ClothingManager:
                             color CHAR(7) NOT NULL,
                             description VARCHAR(255) DEFAULT NULL,
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                            deleted_at TIMESTAMP DEFAULT NULL,
                             FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
                             );
                             """)
@@ -70,6 +72,71 @@ class ClothingManager:
             logger.error(f"An unexpected error occured while deleting an image: {e}")
             logger.error(traceback.format_exc())
             raise e
+        
+    def sync_clothes(self, user_id: str, updated_since: datetime) -> tuple[list[Clothing], list[str]]:
+        updated_clothes: list[Clothing] = []
+        deleted_ids: list[str] = []
+        
+        statement = """
+            SELECT clothing_id, is_public, name, category, image_id, user_id, color, description, created_at, updated_at
+            FROM clothing
+            WHERE user_id = %s AND updated_at > %s AND deleted_at IS NULL
+            ORDER BY updated_at ASC
+        """
+        
+        try:
+            with Database.getConnection() as conn:
+                cursor = conn.cursor(dictionary=True)
+                cursor.execute(statement, (user_id, updated_since,))
+
+                updated_rows = cursor.fetchall()
+                
+                for clothing in updated_rows:
+                    clothing = helper.ensure_dict(clothing)
+                    
+                    cursor.execute("SELECT season FROM clothing_seasons WHERE clothing_id = %s;", (clothing.get("clothing_id"),))
+                    seasons = cursor.fetchall()
+                    
+                    cursor.execute("SELECT tag FROM clothing_tags WHERE clothing_id = %s;", (clothing.get("clothing_id"),))
+                    tags = cursor.fetchall()
+                    
+                    seasons_list = [
+                        ClothingSeason[helper.ensure_dict(season).get("season", "")]
+                        for season in seasons
+                    ]
+
+                    tags_list = [
+                        ClothingTags[helper.ensure_dict(tag).get("tag", "")]
+                        for tag in tags
+                    ]
+
+                    clothing_instance = Clothing.from_dict(
+                        clothing,
+                        seasons_list,
+                        tags_list
+                    )
+                    
+                    updated_clothes.append(clothing_instance)
+                    
+                cursor.execute("""
+                    SELECT clothing_id
+                    FROM clothing
+                    WHERE user_id = %s AND deleted_at IS NOT NULL AND deleted_at > %s
+                    """,
+                    (user_id, updated_since, )
+                )
+                
+                deleted_rows = cursor.fetchall()
+                
+                for row in deleted_rows:
+                    row = helper.ensure_dict(row)
+                    deleted_ids.append(row.get("clothing_id", ""))
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while retrieving updated and deleted clothes for user {user_id}: {e}")
+            logger.error(traceback.format_exc())
+            raise e
+
+        return updated_clothes, deleted_ids
 
     def create_clothing(self, user_id: str, name: str, category: str, image_id: str, color: Optional[str], seasons: Optional[list] = None, tags: Optional[list] = None, description: Optional[str] = None) -> Clothing:
         if not isinstance(name, str) or not name.strip():

@@ -11,13 +11,11 @@ from io import BytesIO
 from backgroundremover import bg
 from app.utils.logging import get_logger
 from app.models.clothing import ClothingCategory
+from urllib.parse import urljoin
 
-from transformers import AutoTokenizer
-from timm import create_model
 from sklearn.cluster import KMeans
 
 from fashion_clip.fashion_clip import FashionCLIP
-import torch
 import numpy as np
 
 fclip = FashionCLIP("fashion-clip")
@@ -28,7 +26,7 @@ CATEGORIES = [category.value for category in ClothingCategory]
 
 class ImageManager:
     
-    def process_image_preview(self, file: FileStorage) -> dict:
+    def process_image_preview(self, file: Optional[FileStorage]) -> tuple[str, str, str, str, list[str], list[str]]:
         if not isinstance(file, FileStorage) or not isinstance(file.filename, str) or not file.filename.endswith((".png", ".jpg", ".jpeg")):
             raise UnsupportedFileTypeError("The file provided is not a supported image type. Supported types are PNG, JPG, and JPEG.")
         
@@ -44,19 +42,12 @@ class ImageManager:
         processed_image.save(image_path, format="WEBP")
         
         dominant_hexcode = self._extract_dominant_color(processed_image)
-        logger.info(dominant_hexcode)
         
         clothing_category = self._extract_clothing_category(image_path)
-        logger.info(clothing_category)
         
-        return {
-            "image_url": f"https://api.clothing-booth.com/uploads/temp/{image_id}.webp",
-            "image_id": image_id,
-            "image_color": dominant_hexcode,
-            "image_category": clothing_category,
-            "image_seasons": [],
-            "image_tags": []
-        }
+        image_url = str(urljoin(os.getenv("API_BASE_URL", ""), f"uploads/temp/{image_id}.webp"))
+        
+        return image_url, image_id, dominant_hexcode, clothing_category, [], []
     
     def _extract_clothing_category(self, image_path: str) -> str:
         image_emb = fclip.encode_images([image_path], batch_size=1)
@@ -169,7 +160,7 @@ class ImageManager:
         path = f"app/static/outfit_collages/{filename}.webp"
         img.save(path, "WEBP")  # optional: quality=85, method=6
 
-        public_url = f"https://api.clothing-booth.com/uploads/outfit_collages/{filename}.webp"
+        public_url = str(urljoin(os.getenv("API_BASE_URL", ""), f"uploads/outfit_collages/{filename}.webp"))
         return public_url, filename
     
     def load_clothing_image_by_id(self, image_id: str) -> Image.Image:
@@ -206,7 +197,7 @@ class ImageManager:
         path = f"app/static/outfit_collages/{filename}.webp"
         canvas.save(path, "WEBP")
         
-        public_url = f"https://api.clothing-booth.com/uploads/outfit_collages/{filename}.webp"
+        public_url = str(urljoin(os.getenv("API_BASE_URL", ""), f"uploads/outfit_collages/{filename}.webp"))
         return public_url, filename
         
     def _place_item(self, canvas: Image.Image, item_data: dict, image_id: str):

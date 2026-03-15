@@ -10,6 +10,33 @@ from ..utils.authentication_managment import authorize_request
 
 users = Blueprint("users", __name__)
 
+@users.route("/me/clothing/sync", methods=["GET"])
+@limiter.limit('5 per minute')
+@authorize_request
+def sync_my_clothes():
+    updated_since_param = request.args.get("updated_since")
+
+    if updated_since_param:
+        try:
+            updated_since = datetime.fromisoformat(updated_since_param)
+            if updated_since.tzinfo is None:
+                updated_since = updated_since.replace(tzinfo=timezone.utc)
+        except ValueError:
+            return jsonify({"error": "Invalid updated_since timestamp"}), 400
+    else:
+        updated_since = datetime.fromtimestamp(0, tz=timezone.utc)
+
+    updated_clothes, deleted_clothes_id = clothing_manager.sync_clothes(
+        user_id=g.user_id,
+        updated_since=updated_since
+    )
+
+    return jsonify({
+        "updated": [c.to_dict() for c in updated_clothes],
+        "deleted": deleted_clothes_id,
+        "server_time": datetime.now(timezone.utc).isoformat()
+    }), 200
+
 @users.route("/me/outfits/sync", methods=["GET"])
 @limiter.limit('5 per minute')
 @authorize_request

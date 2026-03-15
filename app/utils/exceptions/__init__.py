@@ -48,7 +48,7 @@ from app.utils.exceptions.outfits import (
     OutfitSceneInvalidError,
     OutfitPreviewInvalidError
 )
-from app.utils.exceptions.auth import AuthTokenExpiredError, AuthAccessTokenInvalidError, AuthRefreshTokenInvalidError, AuthAccessTokenMissingError, AuthRefreshTokenMissingError, AuthCredentialsWrongError
+from app.utils.exceptions.auth import AuthTokenExpiredError, AuthAccessTokenInvalidError, AuthRefreshTokenInvalidError, AuthAccessTokenMissingError, AuthRefreshTokenMissingError, AuthCredentialsWrongError, AuthCredentialsMissingError
 from app.utils.exceptions.user import (
     SignInNameMissingError,
     EmailMissingError,
@@ -112,6 +112,7 @@ __all__ = [
     "AuthAccessTokenMissingError",
     "AuthRefreshTokenMissingError",
     "AuthCredentialsWrongError",
+    "AuthCredentialsMissingError",
     "UserValidationError",
     "UserNotFoundError",
     "UserPermissionError",
