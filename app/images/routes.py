@@ -29,4 +29,4 @@ def generate_image():
             "image_category": image_category,
             "image_seasons": image_seasons,
             "image_tags": image_tags
-        }, 201)
+        }), 201
