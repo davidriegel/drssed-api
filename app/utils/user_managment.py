@@ -16,24 +16,6 @@ from app.utils.logging import get_logger
 logger = get_logger()
 
 class UserManager:
-
-    def ensure_table_exists(self) -> None:
-        with Database.getConnection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                           CREATE TABLE IF NOT EXISTS users(
-                           user_id VARCHAR(36) PRIMARY KEY,
-                           is_guest BOOLEAN DEFAULT TRUE,
-                           username VARCHAR(32) UNIQUE DEFAULT NULL,
-                           email VARCHAR(255) UNIQUE DEFAULT NULL,
-                           password VARCHAR(97) DEFAULT NULL,
-                           profile_picture VARCHAR(255) UNIQUE DEFAULT NULL,
-                           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                           );
-                           """)
-            conn.commit()
-
     def upgrade_guest_account(self, user_id: str, email: Optional[str], username: Optional[str], password: Optional[str], profile_picture: Optional[str]) -> User:
         if not (isinstance(email, str) and email.strip()) and not (isinstance(username, str) and username.strip()):
             raise SignInNameMissingError("Either an email or username is required.")

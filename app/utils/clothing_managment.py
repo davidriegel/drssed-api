@@ -17,42 +17,6 @@ import os
 logger = get_logger()
 
 class ClothingManager:
-
-    def ensure_table_exists(self) -> None:
-        with Database.getConnection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                            CREATE TABLE IF NOT EXISTS clothing(
-                            clothing_id VARCHAR(36) PRIMARY KEY,
-                            is_public BOOLEAN DEFAULT TRUE,
-                            name VARCHAR(50) NOT NULL,
-                            category VARCHAR(50) NOT NULL,
-                            image_id VARCHAR(36) UNIQUE NOT NULL,
-                            user_id VARCHAR(36) NOT NULL,
-                            color CHAR(7) NOT NULL,
-                            description VARCHAR(255) DEFAULT NULL,
-                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                            deleted_at TIMESTAMP DEFAULT NULL,
-                            FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
-                            );
-                            """)
-            cursor.execute("""
-                            CREATE TABLE IF NOT EXISTS clothing_seasons(
-                            clothing_id VARCHAR(36) NOT NULL,
-                            season ENUM('SPRING', 'SUMMER', 'AUTUMN', 'WINTER') NOT NULL,
-                            FOREIGN KEY (clothing_id) REFERENCES clothing(clothing_id) ON DELETE CASCADE
-                            );
-                            """)
-            cursor.execute("""
-                            CREATE TABLE IF NOT EXISTS clothing_tags(
-                            clothing_id VARCHAR(36) NOT NULL,
-                            tag VARCHAR(50) NOT NULL,
-                            FOREIGN KEY (clothing_id) REFERENCES clothing(clothing_id) ON DELETE CASCADE
-                            );
-                            """)
-            conn.commit()
-
     def _delete_unused_image(self, filename: str) -> None:
         try:
             with Database.getConnection() as conn:

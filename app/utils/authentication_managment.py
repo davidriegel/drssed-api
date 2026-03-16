@@ -47,25 +47,6 @@ def authorize_request(f):
     return wrapper
 
 class AuthenticationManager:
-    
-    def ensure_table_exists(self) -> None:
-        with Database.getConnection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""CREATE TABLE IF NOT EXISTS refresh_tokens(
-                           user_id VARCHAR(36) NOT NULL,
-                           refresh_token VARCHAR(24) PRIMARY KEY,
-                           refresh_token_expiry TIMESTAMP DEFAULT NULL,
-                           FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
-                           );
-                           """)
-            
-            cursor.execute("""CREATE EVENT IF NOT EXISTS delete_expired_refresh_tokens
-                            ON SCHEDULE EVERY 1 DAY
-                            STARTS CONCAT(CURDATE(), ' 09:00:00')
-                            DO
-                            DELETE FROM refresh_tokens WHERE refresh_token_expiry < NOW();""")
-            conn.commit()
-
     def refresh_access_token(self, old_access_token: Optional[str], refresh_token:  Optional[str]) -> tuple:
         if not isinstance(old_access_token, str) or not old_access_token.strip():
             raise AuthAccessTokenMissingError("The access_token is missing.")

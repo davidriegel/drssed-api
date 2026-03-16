@@ -32,7 +32,6 @@ def prepare_api():
     limiter.init_app(api)
 
     prepare_static_directories()
-    initialize_database()
     register_blueprints()
     logger.debug("API prepared successfully.")
 
@@ -76,14 +75,6 @@ def register_blueprints():
     api.register_blueprint(outfits, url_prefix="/outfits")
 
     logger.debug("Blueprint routes registered")
-
-def initialize_database():
-    user_manager.ensure_table_exists()
-    authentication_manager.ensure_table_exists()
-    clothing_manager.ensure_table_exists()
-    outfit_manager.ensure_table_exists()
-
-    logger.debug("Database initialized successfully.")
 
 def prepare_static_directories():
     static_dirs = ["app/static/clothing_images", "app/static/profile_pictures", "app/static/temp", "app/static/outfit_collages"]
