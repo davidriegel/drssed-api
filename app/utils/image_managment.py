@@ -78,16 +78,16 @@ class ImageManager:
 
     def _extract_foreground(self, file: Optional[FileStorage]) -> Image.Image:
         try:
-            image = Image.open(file)
+            image: Image.Image = Image.open(file)
             image = image.convert("RGBA")
             
-            pngImage = BytesIO()
-            image.save(pngImage, format="PNG")
-            pngImage.seek(0)
+            max_size = 1024
+            
+            image.thumbnail((max_size, max_size), Image.Resampling.BILINEAR)
             
             try:
-                without_background = bg.remove(pngImage.read(), model_name="u2net_cloth_segm",
-                                        alpha_matting=True,
+                without_background = bg.remove(image, model_name="u2netp",
+                                        alpha_matting=False,
                                         alpha_matting_foreground_threshold=200, # 240
                                         alpha_matting_background_threshold=10, #30 # 10
                                         alpha_matting_erode_structure_size=13, #5 # 10
@@ -105,9 +105,10 @@ class ImageManager:
             alpha = new_image.getchannel("A")
             bbox = alpha.getbbox()
             
-            cropped_image = new_image.crop(bbox)
+            if bbox:
+                new_image = new_image.crop(bbox)
             
-            return cropped_image
+            return new_image
         except Exception as e:
             logger.error(f"An unexpected error occured while removing the background of an image: {e}")
             logger.error(traceback.format_exc())
