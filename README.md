@@ -19,9 +19,8 @@ Backend REST API for **Drssed**, a personal wardrobe management app that digitiz
 ## Getting Started
 
 ### Prerequisites
-- Python == 3.12.*
-- MySQL Server
-- Redis Server (for rate limiting)
+- Docker
+- Docker Compose
 
 ### Installation
 
@@ -32,17 +31,13 @@ git clone https://github.com/davidriegel/drssed-api.git
 cd drssed-api
 ```
 
-Install dependencies in a virtual environment:
+Configure environment variables:
+
+Create a `.env` file in the root directory based on the provided `.env.example`:
 
 ```bash
-python3.12 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+cp .env.example .env
 ```
-
-Setup the enviroment variables:
-
-See `.env.example` for all required variables:
 
 ```env
 API_BASE_URL=http://localhost:8000
@@ -62,18 +57,13 @@ REDIS_URI=redis://redis:6379
 LOG_LEVEL=INFO
 ```
 
-Setup the database:
+Start the application using Docker Compose:
 
 ```bash
-mysql -u DATABASE_USERNAME -p
-CREATE DATABASE DATABASE_NAME;
+docker-compose up -d
 ```
 
-Run the application:
-
-```bash
-gunicorn -c gunicorn_config.py main:api
-```
+The API will be accessible at `http://localhost:8000`.
 
 ---
 
@@ -81,11 +71,13 @@ gunicorn -c gunicorn_config.py main:api
 
 | Layer | Technology |
 |---|---|
-| Language | Python 3 |
+| Language | Python 3.12 |
 | Framework | Flask |
 | Database | MySQL |
+| Cache & Rate Limiting | Redis |
 | Auth | JWT |
 | Server | Gunicorn |
+| Containerization | Docker |
 
 ---
 
