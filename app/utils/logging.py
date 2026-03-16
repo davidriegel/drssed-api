@@ -34,19 +34,13 @@ class Logger:
             cls._logger.setLevel(level)
 
             if not cls._logger.hasHandlers():
-                log_filename = "logs/app.log"
-                os.makedirs(os.path.dirname(log_filename), exist_ok=True)
-                file_handler = RotatingFileHandler(log_filename, maxBytes=1024*1024, backupCount=5)
                 stream_handler = logging.StreamHandler()
                 
                 formatter = CustomFormatter()
-                file_handler.setFormatter(formatter)
                 stream_handler.setFormatter(formatter)
                 
-                file_handler.setLevel(level)
                 stream_handler.setLevel(level)
 
-                cls._logger.addHandler(file_handler)
                 cls._logger.addHandler(stream_handler)
 
         return cls._logger

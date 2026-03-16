@@ -1,0 +1,33 @@
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DATABASE_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DATABASE_NAME}
+      MYSQL_USER: ${DATABASE_USERNAME}
+      MYSQL_PASSWORD: ${DATABASE_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+
+  api:
+    build: .
+    env_file: .env
+    volumes:
+      - ./app/static:/app/app/static
+      - ./logs:/app/logs
+    depends_on:
+      - mysql
+      - redis
+    ports:
+      - "8000:8000"
+
+volumes:
+  mysql_data:
+  redis_data:
