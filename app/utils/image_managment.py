@@ -85,8 +85,12 @@ class ImageManager:
             
             image.thumbnail((max_size, max_size), Image.Resampling.BILINEAR)
             
+            pngImage = BytesIO()
+            image.save(pngImage, format="PNG")
+            pngImage.seek(0)
+            
             try:
-                without_background = bg.remove(image, model_name="u2netp",
+                without_background = bg.remove(pngImage, model_name="u2netp",
                                         alpha_matting=False,
                                         alpha_matting_foreground_threshold=200, # 240
                                         alpha_matting_background_threshold=10, #30 # 10
