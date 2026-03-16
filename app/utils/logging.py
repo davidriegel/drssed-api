@@ -23,7 +23,7 @@ class CustomFormatter(logging.Formatter):
         return f"[{record.asctime}] [{record.process}] [{record.levelname}] {record.getMessage()}"
 
 class Logger:
-    _logger: logging.Logger = None
+    _logger: logging.Logger | None = None
 
     @classmethod
     def get_logger(cls) -> logging.Logger:
