@@ -1,13 +1,50 @@
 __all__ = ["get_logger"]
 
+import json
 import logging
 import time
-import os
+from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from os import getenv
 
-# ! stream_handler is used to print logs to console
-# ! remove stream_handler to disable console logs (only file logs; useful for production)
+class JsonFormatter(logging.Formatter):
+    def format(self, record) -> str:
+        log_data = {
+            "timestamp": datetime.fromtimestamp(record.created).isoformat() + "Z",
+            "level": record.levelname,
+            "logger": record.name,
+            "process": record.process,
+            "message": record.getMessage()
+        }
+        
+        user_id = getattr(record, 'user_id', None)
+        if user_id is not None:
+            log_data['user_id'] = user_id
+            
+        endpoint = getattr(record, 'endpoint', None)
+        if endpoint:
+            log_data['endpoint'] = endpoint
+            
+        method = getattr(record, 'method', None)
+        if method:
+            log_data['method'] = method
+            
+        status_code = getattr(record, 'status_code', None)
+        if status_code:
+            log_data['status_code'] = status_code
+            
+        duration_ms = getattr(record, 'duration_ms', None)
+        if duration_ms is not None:
+            log_data['duration_ms'] = duration_ms
+            
+        ip = getattr(record, 'ip', None)
+        if ip:
+            log_data['ip'] = ip
+            
+        if record.exc_info:
+            log_data['exception'] = self.formatException(record.exc_info)
+        
+        return json.dumps(log_data)
 
 class CustomFormatter(logging.Formatter):
     def formatTime(self, record, datefmt=None):
