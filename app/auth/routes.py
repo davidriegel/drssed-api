@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, g
 #from app.utils.exceptions import EmailInvalidError, PasswordTooShortError, UsernameTooLongError, UsernameTooShortError, EmailAlreadyInUseError, WrongSignInCredentialsError, UsernameAlreadyInUseError, AuthValidationError, UserProfilePictureNotFoundError
-from app.utils.authentication_managment import authentication_manager,  authorize_request
+from app.utils.authentication_managment import authentication_manager
+from app.utils.middleware.authentication import authorize_request
 from app.utils.user_managment import user_manager
 from app.utils.limiter import limiter
 
