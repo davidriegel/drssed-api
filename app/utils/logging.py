@@ -45,6 +45,56 @@ class JsonFormatter(logging.Formatter):
             log_data['exception'] = self.formatException(record.exc_info)
         
         return json.dumps(log_data)
+    
+class ConsoleFormatter(logging.Formatter):
+    COLORS = {
+        'DEBUG': '\033[36m', # Cyan
+        'INFO': '\033[32m', # Green
+        'WARNING': '\033[33m', # Yellow
+        'ERROR': '\033[31m', # Red
+        'CRITICAL': '\033[35m', # Magenta
+        'RESET': '\033[0m'
+    }
+    
+    def formatTime(self, record, datefmt=None):
+        ct = self.converter(record.created)
+        if datefmt:
+            s = time.strftime(datefmt, ct)
+        else:
+            s = time.strftime("%H:%M:%S", ct)
+        return s
+    
+    def format(self, record):
+        timestamp = self.formatTime(record)
+        level_color = self.COLORS.get(record.levelname, self.COLORS['RESET'])
+        level = f"{level_color}{record.levelname:<8}{self.COLORS['RESET']}"
+        
+        message = record.getMessage()
+        
+        extras = []
+        user_id = getattr(record, 'user_id', None)
+        if user_id is not None:
+            extras.append(f"user={user_id}")
+            
+        endpoint = getattr(record, 'endpoint', None)
+        if endpoint:
+            extras.append(f"endpoint={endpoint}")
+            
+        method = getattr(record, 'method', None)
+        if method:
+            extras.append(f"method={method}")
+            
+        status_code = getattr(record, 'status_code', None)
+        if status_code:
+            extras.append(f"status={status_code}")
+            
+        duration_ms = getattr(record, 'duration_ms', None)
+        if duration_ms:
+            extras.append(f"duration={duration_ms}")
+            
+        extra_str = f" | {' | '.join(extras)}" if extras else ""
+        
+        return f"{timestamp} | {level} | {message}{extra_str}"
 
 class CustomFormatter(logging.Formatter):
     def formatTime(self, record, datefmt=None):
