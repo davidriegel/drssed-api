@@ -1,6 +1,7 @@
 __all__ = ["get_logger"]
 
 import json
+import os
 import logging
 import time
 from datetime import datetime
@@ -96,41 +97,78 @@ class ConsoleFormatter(logging.Formatter):
         
         return f"{timestamp} | {level} | {message}{extra_str}"
 
-class CustomFormatter(logging.Formatter):
-    def formatTime(self, record, datefmt=None):
-        ct = self.converter(record.created)
-        if datefmt:
-            s = time.strftime(datefmt, ct)
-        else:
-            s = time.strftime("%Y-%m-%d %H:%M:%S %z", ct)
-        return s
-
-    def format(self, record):
-        record.asctime = self.formatTime(record, self.datefmt)
-        return f"[{record.asctime}] [{record.process}] [{record.levelname}] {record.getMessage()}"
-
 class Logger:
     _logger: logging.Logger | None = None
+    _initialized: bool = False
 
     @classmethod
-    def get_logger(cls) -> logging.Logger:
-        if cls._logger is None:
-            cls._logger = logging.getLogger()
-            log_level = getenv("LOG_LEVEL", "DEBUG").upper()
-            level = getattr(logging, log_level, logging.DEBUG)
-            cls._logger.setLevel(level)
+    def setup_logging(cls, app=None):
+        if cls._initialized:
+            return
+            
+        cls._logger = logging.getLogger("drssed")
+        
+        log_level = getenv("LOG_LEVEL", "DEBUG").upper()
+        level = getattr(logging, log_level, logging.DEBUG)
+        cls._logger.setLevel(level)
+        
+        env = getenv("FLASK_ENV", "development")
+        is_production = env == "production"
+        
+        cls._logger.handlers.clear()
+        
+        console_handler = logging.StreamHandler()
+        
+        if is_production:
+            console_handler.setFormatter(JsonFormatter())
+            console_handler.setLevel(log_level)
+        else:
+            console_handler.setFormatter(ConsoleFormatter())
+            console_handler.setLevel(level)
+        
+        cls._logger.addHandler(console_handler)
+        
+        if is_production:
+            log_dir = "logs"
+            os.makedirs(log_dir, exist_ok=True)
+            
+            file_handler = RotatingFileHandler(
+                f"{log_dir}/drssed-api.log",
+                maxBytes=10 * 1024 * 1024,  # 10MB
+                backupCount=10
+            )
+            file_handler.setFormatter(JsonFormatter())
+            file_handler.setLevel(log_level)
+            cls._logger.addHandler(file_handler)
+            
+            error_handler = RotatingFileHandler(
+                f"{log_dir}/drssed-errors.log",
+                maxBytes=5 * 1024 * 1024,  # 5MB
+                backupCount=5
+            )
+            error_handler.setFormatter(JsonFormatter())
+            error_handler.setLevel(logging.ERROR)
+            cls._logger.addHandler(error_handler)
+        
+        logging.getLogger("werkzeug").setLevel(logging.WARNING)
+        
+        cls._initialized = True
+        cls._logger.info(f"Logging initialized - Environment: {env}, Level: {log_level}")
 
-            if not cls._logger.hasHandlers():
-                stream_handler = logging.StreamHandler()
-                
-                formatter = CustomFormatter()
-                stream_handler.setFormatter(formatter)
-                
-                stream_handler.setLevel(level)
-
-                cls._logger.addHandler(stream_handler)
-
+    @classmethod
+    def get_logger(cls, name=None) -> logging.Logger:
+        if not cls._initialized:
+            cls.setup_logging()
+        
+        if name:
+            return logging.getLogger(f"drssed.{name}")
         return cls._logger
 
-def get_logger() -> logging.Logger:
-    return Logger.get_logger()
+
+def get_logger(name=None) -> logging.Logger:
+    # Convinience function
+    return Logger.get_logger(name)
+
+
+def setup_logging(app=None):
+    Logger.setup_logging(app)
