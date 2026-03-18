@@ -6,7 +6,7 @@ from app.utils.clothing_managment import clothing_manager
 from ..utils.exceptions import UsernameTooShortError, UsernameTooLongError, UsernameAlreadyInUseError, UserNotFoundError, UnsupportedFileTypeError
 from ..utils.limiter import limiter
 from ..utils.helpers import helper
-from ..utils.authentication_managment import authorize_request
+from ..utils.middleware.authentication import authorize_request
 
 users = Blueprint("users", __name__)
 

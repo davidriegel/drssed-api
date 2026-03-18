@@ -54,6 +54,7 @@ SECRET_TOKEN_KEY=SECRET_KEY_VALUE_FOR_JWT_AUTHENTICATION
 RATELIMITER_ENABLED=True
 REDIS_URI=redis://redis:6379
 
+FLASK_ENV=development # 'development' or 'production'
 LOG_LEVEL=INFO
 ```
 

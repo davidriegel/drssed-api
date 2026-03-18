@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, g
 from app.utils.clothing_managment import clothing_manager
 from app.utils.limiter import limiter
-from app.utils.authentication_managment import authorize_request
+from app.utils.middleware.authentication import authorize_request
 
 clothing = Blueprint("clothing", __name__)
 

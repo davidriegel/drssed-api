@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from app.utils.limiter import limiter
 from app.utils.exceptions import FileTooLargeError, ImageUnclearError
-from app.utils.authentication_managment import authorize_request
+from app.utils.middleware.authentication import authorize_request
 from app.utils.image_managment import image_manager
 
 images = Blueprint("images", __name__)
