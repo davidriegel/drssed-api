@@ -6,7 +6,7 @@ threads = 2
 timeout = 180
 worker_class = "gthread"
 
-accesslog = "-"
+accesslog = None
 errorlog = "-"
 
-loglevel = "info"
+loglevel = "warning"
