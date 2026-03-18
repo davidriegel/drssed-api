@@ -1,5 +1,6 @@
 __all__ = ["helper"]
 
+from flask import has_request_context, g, request
 from typing import Any
 from app.utils.logging import get_logger
 
@@ -26,5 +27,21 @@ class HelperFunctions:
             "offset": offset,
             "total": total
         }
+    
+    def get_request_context(self):
+        if not has_request_context():
+            return {}
+        
+        context = {
+            'method': request.method,
+            'path': request.path,
+            'endpoint': request.endpoint,
+            'ip': request.remote_addr
+        }
+        
+        if hasattr(g, 'user_id'):
+            context['user_id'] = g.user_id
+        
+        return context
 
 helper = HelperFunctions()
