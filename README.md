@@ -124,6 +124,7 @@ For detailed setup and customization, see the [drssed-monitoring documentation](
 ## Related
 
 - **iOS App** → [davidriegel/drssed-ios](https://github.com/davidriegel/drssed-ios)
+- **Monitoring** → [davidriegel/drssed-monitoring](https://github.com/davidriegel/drssed-monitoring)
 - **Portfolio** → [davidriegel.dev](https://davidriegel.dev)
 
 ---
