@@ -82,6 +82,45 @@ The API will be accessible at `http://localhost:8000`.
 
 ---
 
+## Monitoring (Optional)
+
+For production deployments, structured logging and real-time monitoring are available via [drssed-monitoring](https://github.com/davidriegel/drssed-monitoring).
+
+### Enable Production Logging
+
+Set `FLASK_ENV=production` in your `.env` file to enable JSON-formatted logs:
+
+```env
+FLASK_ENV=production
+LOG_LEVEL=INFO
+```
+
+In production mode, the API automatically outputs structured logs with request details, response times, error tracking, and performance metrics.
+
+### Monitoring Stack
+
+The monitoring stack provides:
+- **Real-time log streaming** — aggregate logs from all API containers
+- **Performance dashboards** — response time percentiles and error rates
+- **Pre-configured Grafana dashboard** — with API metrics visualization
+- **Zero-configuration setup** — automatic setup for drssed-api
+
+### Quick Setup
+
+```bash
+git clone https://github.com/davidriegel/drssed-monitoring.git
+cd drssed-monitoring
+docker compose up -d
+```
+
+Access the monitoring dashboard at `http://localhost:3000` (default login: `admin` / `admin`).
+
+No additional configuration required — the monitoring stack automatically discovers and monitors the API container.
+
+For detailed setup and customization, see the [drssed-monitoring documentation](https://github.com/davidriegel/drssed-monitoring).
+
+---
+
 ## Related
 
 - **iOS App** → [davidriegel/drssed-ios](https://github.com/davidriegel/drssed-ios)
