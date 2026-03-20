@@ -14,14 +14,13 @@ from app.utils.exceptions import (
     PermissionError
 )
 from app.utils.helpers import helper
-import traceback
-from app.main.routes import api as main
-from app.auth.routes import auth
-from app.users.routes import users
-from app.uploads.routes import uploads
-from app.clothing.routes import clothing
-from app.images.routes import images
-from app.outfits.routes import outfits
+from app.routes.main_routes import api as main
+from app.routes.auth_routes import auth
+from app.routes.users_routes import users
+from app.routes.uploads_routes import uploads
+from app.routes.clothing_routes import clothing
+from app.routes.images_routes import images
+from app.routes.outfits_routes import outfits
 
 api = Flask("Drssed API")
 
