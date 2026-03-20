@@ -25,7 +25,12 @@ REFRESH_TOKEN_LENGTH = 16
 logger = get_logger()
 
 class AuthenticationManager:
-    def refresh_access_token(self, old_access_token: Optional[str], refresh_token:  Optional[str]) -> tuple:
+    def refresh_access_token(self, old_access_token: Optional[str], refresh_token:  Optional[str]) -> tuple[str, int, str]:
+        """
+        :returns access_token: Fresh access token for user
+        :returns expires_in: Expiry in seconds
+        :returns refresh_token: New refresh token for user if user is signed in otherwise send back same refresh token
+        """
         if not isinstance(old_access_token, str) or not old_access_token.strip():
             raise AuthAccessTokenMissingError("The access_token is missing.")
         if not isinstance(refresh_token, str) or not refresh_token.strip():
@@ -95,11 +100,18 @@ class AuthenticationManager:
             logger.error(traceback.format_exc())
             raise e
         
-    def register_guest(self) -> tuple:
+    def register_guest(self) -> tuple[str, int, str]:
+        """
+        :returns access_token: Access token for user
+        :returns expires_in: Expiry in seconds
+        :returns refresh_token: Refresh token for user
+        """
         try:
             user_id = self._add_user_to_database()
-
-            return self._generate_token_pair(user_id, is_guest=True)
+            
+            access_token, expires_in, refresh_token = self._generate_token_pair(user_id, is_guest=True)
+            
+            return access_token, expires_in, refresh_token
         except Exception as e:
             logger.error(f"An unexpected error occurred while registering guest: {e}")
             raise
@@ -158,7 +170,7 @@ class AuthenticationManager:
             logger.error(traceback.format_exc())
             raise e
         
-    def _generate_token_pair(self, user_id: Optional[str], is_guest: Optional[bool]) -> tuple:
+    def _generate_token_pair(self, user_id: Optional[str], is_guest: Optional[bool]) -> tuple[str, int, str]:
         if not isinstance(user_id, str) or not user_id.strip():
             raise UserIDMissingError("The user_id is missing or invalid.")
         
