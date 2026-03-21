@@ -10,7 +10,6 @@ from typing import Optional
 from mysql.connector.errors import IntegrityError
 from app.models.outfit import Outfit, OutfitTags, OutfitSeason, CanvasPlacement
 from app.utils.helpers import helper
-from app.utils.authentication_managment import authentication_manager
 from app.utils.clothing_managment import clothing_manager
 from app.utils.image_managment import image_manager
 from app.utils.logging import get_logger
@@ -230,11 +229,9 @@ class OutfitManager:
 
         return outfit
     
-    def get_outfit_by_id(self, token: str, outfit_id: Optional[str]) -> Outfit:
+    def get_outfit_by_id(self, user_id: str, outfit_id: Optional[str]) -> Outfit:
         if not isinstance(outfit_id, str) or not outfit_id.strip():
             raise OutfitIDMissingError("The provided outfit ID is missing or invalid.")
-        
-        user_id = authentication_manager.get_user_id_from_token(token)
         
         try:
             with Database.getConnection() as conn:
@@ -365,8 +362,7 @@ class OutfitManager:
 
         return outfit_list, total_outfits
         
-    def update_outfit(self, token: str, outfit_id: str, name: Optional[str] = None, is_public: Optional[bool] = None, seasons: Optional[list[str]] = None, tags: Optional[list[str]] = None, clothing_ids: Optional[list[str]] = None, description: Optional[str] = None) -> Outfit:
-        user_id = authentication_manager.get_user_id_from_token(token)
+    def update_outfit(self, user_id: str, outfit_id: str, name: Optional[str] = None, is_public: Optional[bool] = None, seasons: Optional[list[str]] = None, tags: Optional[list[str]] = None, clothing_ids: Optional[list[str]] = None, description: Optional[str] = None) -> Outfit:
         
         fields = []
         values = []
@@ -465,13 +461,11 @@ class OutfitManager:
             logger.error(traceback.format_exc())
             raise e
         
-        return self.get_outfit_by_id(token, outfit_id)
+        return self.get_outfit_by_id(user_id, outfit_id)
 
-    def delete_outfit_by_id(self, token: str, outfit_id: Optional[str]) -> None:
+    def delete_outfit_by_id(self, user_id: str, outfit_id: Optional[str]) -> None:
         if not isinstance(outfit_id, str) or not outfit_id.strip():
             raise OutfitIDMissingError("The provided outfit ID is missing or invalid.")
-        
-        user_id = authentication_manager.get_user_id_from_token(token)
 
         try:
             with Database.getConnection() as conn:
