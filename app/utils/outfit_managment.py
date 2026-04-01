@@ -361,7 +361,7 @@ class OutfitManager:
 
         return outfit_list, total_outfits
         
-    def patch_outfit(self, user_id: str, outfit_id: str, name: Optional[str] = None, is_favorite: Optional[bool] = None, is_public: Optional[bool] = None, seasons: Optional[list[str]] = None, tags: Optional[list[str]] = None):
+    def patch_outfit(self, user_id: str, outfit_id: str, name: Optional[str] = None, is_favorite: Optional[bool] = None, is_public: Optional[bool] = None, seasons: Optional[list[str]] = None, tags: Optional[list[str]] = None) -> Outfit:
         try: 
             with Database.getConnection() as conn:
                 cursor = conn.cursor()
@@ -410,9 +410,10 @@ class OutfitManager:
             logger.error(f"An unexpected error occurred while updating outfit with ID {outfit_id}: {e}")
             logger.error(traceback.format_exc())
             raise e
-        return
+        
+        return self.get_outfit_by_id(user_id, outfit_id)
     
-    def _update_outfit_seasons(self, cursor, outfit_id: str, new_seasons: list[str]):
+    def _update_outfit_seasons(self, cursor, outfit_id: str, new_seasons: list[str]) -> None:
         cursor.execute("SELECT season FROM outfit_seasons WHERE outfit_id = %s;", (outfit_id,))
         existing_seasons = {season[0] for season in cursor.fetchall()}
         new_seasons_set = {season.strip().upper() for season in new_seasons}
@@ -449,107 +450,6 @@ class OutfitManager:
         if tags_to_add:
             values = [(outfit_id, tag) for tag in tags_to_add]
             cursor.executemany("INSERT INTO outfit_tags (outfit_id, tag) VALUES (%s, %s);", values)
-        
-    def update_outfit(self, user_id: str, outfit_id: str, name: Optional[str] = None, is_public: Optional[bool] = None, seasons: Optional[list[str]] = None, tags: Optional[list[str]] = None, clothing_ids: Optional[list[str]] = None, description: Optional[str] = None) -> Outfit:
-        
-        fields = []
-        values = []
-
-        try:
-            with Database.getConnection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT outfit_id, is_public, name, created_at, user_id, description FROM outfits WHERE outfit_id = %s AND user_id = %s;", (outfit_id, user_id))
-                result = cursor.fetchone()
-
-                if result is None:
-                    raise OutfitNotFoundError("The provided ID does not match any outfit in the database for the current user.")
-
-                if isinstance(name, str):
-                    if len(name) < 3:
-                        raise OutfitNameTooShortError("The provided name is too short, it has to be at least 3 characters long.")
-                    
-                    if len(name) > 50:
-                        raise OutfitNameTooLongError("The provided name is too long, it has to be at most 50 characters long.")
-                    
-                    if name != result[2]:
-                        fields.append("name = %s")
-                        values.append(name)
-
-                if is_public is not None and is_public != result[1]:
-                    fields.append("is_public = %s")
-                    values.append(is_public)
-
-                if description is not None and description != result[5]:
-                    if len(description) > 255:
-                        raise OutfitDescriptionTooLongError("The provided description is too long.")
-                    
-                    fields.append("description = %s")
-                    values.append(description)
-
-                if fields:
-                    cursor.execute(f"UPDATE outfits SET {', '.join(fields)} WHERE outfit_id = %s;", (*values, outfit_id))
-
-                cursor.execute("SELECT season FROM outfit_seasons WHERE outfit_id = %s;", (outfit_id,))
-                existing_seasons: list[str] = [season[0] for season in cursor.fetchall()]
-
-                if seasons is not None and seasons != existing_seasons:
-                    new_seasons = [season for season in seasons if season not in existing_seasons]
-                    old_seasons = [season for season in existing_seasons if season not in seasons]
-                    
-                    if old_seasons:
-                        cursor.execute("DELETE FROM outfit_seasons WHERE outfit_id = %s AND season IN %s;", (outfit_id, tuple(old_seasons)))
-
-                    if new_seasons:
-                        for season in new_seasons:
-                            if season.strip().upper() not in OutfitSeason.__members__:
-                                raise OutfitSeasonsInvalidError(f"The provided season ({season}) is not valid.")
-
-                            cursor.execute("INSERT INTO outfit_seasons(outfit_id, season) VALUES (%s, %s);", (outfit_id, season.strip().upper()))
-
-                cursor.execute("SELECT tag FROM outfit_tags WHERE outfit_id = %s;", (outfit_id,))
-                existing_tags: list[str] = [tag[0] for tag in cursor.fetchall()]
-
-                if tags is not None and tags != existing_tags:
-                    new_tags = [tag for tag in tags if tag not in existing_tags]
-                    old_tags = [tag for tag in existing_tags if tag not in tags]
-                    
-                    if old_tags:
-                        cursor.execute("DELETE FROM outfit_tags WHERE outfit_id = %s AND tag IN %s;", (outfit_id, tuple(old_tags)))
-
-                    if new_tags:
-                        for tag in new_tags:
-                            if tag.strip().upper() not in OutfitTags.__members__:
-                                raise OutfitTagsInvalidError(f"The provided tag ({tag}) is not valid.")
-
-                            cursor.execute("INSERT INTO outfit_tags(outfit_id, tag) VALUES (%s, %s);", (outfit_id, tag.strip().upper()))
-
-                cursor.execute("SELECT clothing_id FROM outfit_clothing WHERE outfit_id = %s;", (outfit_id,))
-                existing_clothing_ids: list[str] = [clothing_id[0] for clothing_id in cursor.fetchall()]
-
-                if clothing_ids is not None and clothing_ids != existing_clothing_ids:
-                    new_clothing_ids = [clothing_id for clothing_id in clothing_ids if clothing_id not in existing_clothing_ids]
-                    old_clothing_ids = [clothing_id for clothing_id in existing_clothing_ids if clothing_id not in clothing_ids]
-                    
-                    if old_clothing_ids:
-                        cursor.execute("DELETE FROM outfit_clothing WHERE outfit_id = %s AND clothing_id IN %s;", (outfit_id, tuple(old_clothing_ids)))
-
-                    if new_clothing_ids:
-                        for clothing_id in new_clothing_ids:
-                            cursor.execute("INSERT INTO outfit_clothing(outfit_id, clothing_id) VALUES (%s, %s);", (outfit_id, clothing_id))
-                            
-                conn.commit()
-        except (OutfitValidationError) as e:
-            raise e
-        except IntegrityError as e:
-            raise OutfitClothingIDInvalidError(f"The provided clothing ID(s) are invalid or do not belong to the user: {e}")
-        except OutfitNotFoundError as e:
-            raise e
-        except Exception as e:
-            logger.error(f"An unexpected error occurred while updating outfit with ID {outfit_id}: {e}")
-            logger.error(traceback.format_exc())
-            raise e
-        
-        return self.get_outfit_by_id(user_id, outfit_id)
 
     def delete_outfit_by_id(self, user_id: str, outfit_id: Optional[str]) -> None:
         if not isinstance(outfit_id, str) or not outfit_id.strip():
