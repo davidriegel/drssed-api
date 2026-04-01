@@ -21,6 +21,13 @@ class HelperFunctions:
     
     @staticmethod
     def build_paginated_response(items, limit, offset, total):
+        """
+        :param items: The items to send
+        :param limit: The limit set for the items
+        :param offset: The offset of the query
+        :param total: Total amount of items in database
+        :return: Dictionary to return
+        """
         return {
             "items": items,
             "limit": limit,
@@ -28,7 +35,10 @@ class HelperFunctions:
             "total": total
         }
     
-    def get_request_context(self):
+    def get_request_context(self) -> dict:
+        """
+        :return: Context dictionary of request
+        """
         if not has_request_context():
             return {}
         

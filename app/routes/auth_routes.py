@@ -1,5 +1,4 @@
 from flask import Blueprint, request, jsonify, g
-#from app.utils.exceptions import EmailInvalidError, PasswordTooShortError, UsernameTooLongError, UsernameTooShortError, EmailAlreadyInUseError, WrongSignInCredentialsError, UsernameAlreadyInUseError, AuthValidationError, UserProfilePictureNotFoundError
 from app.utils.authentication_managment import authentication_manager
 from app.utils.middleware.authentication import authorize_request
 from app.utils.user_managment import user_manager
@@ -12,6 +11,7 @@ auth = Blueprint("auth", __name__)
 @limiter.limit('5 per hour')
 def register_guest():
     access_token, expires_in, refresh_token = authentication_manager.register_guest()
+    g.user_id = authentication_manager.get_user_id_from_token(access_token)
 
     return jsonify({"access_token": access_token, "expires_in": expires_in, "refresh_token": refresh_token}), 201
 
@@ -23,6 +23,7 @@ def refresh_access_token():
     access_token = data.get("access_token")
 
     access_token, expires_in, refresh_token = authentication_manager.refresh_access_token(access_token, refresh_token)
+    g.user_id = authentication_manager.get_user_id_from_token(access_token)
 
     return jsonify({"access_token": access_token, "expires_in": expires_in, "refresh_token": refresh_token}), 200
 
@@ -62,5 +63,6 @@ def login():
     password = data.get("password", None)
     
     access_token, expires_in, refresh_token = authentication_manager.sign_in_user(email, username, password)
+    g.user_id = authentication_manager.get_user_id_from_token(access_token)
     
     return jsonify({"access_token": access_token, "expires_in": expires_in, "refresh_token": refresh_token})
