@@ -25,8 +25,10 @@ REFRESH_TOKEN_LENGTH = 16
 logger = get_logger()
 
 class AuthenticationManager:
-    def refresh_access_token(self, old_access_token: Optional[str], refresh_token:  Optional[str]) -> tuple[str, int, str]:
+    def refresh_access_token(self, old_access_token: str, refresh_token:  str) -> tuple[str, int, str]:
         """
+        :params old_access_token str:
+        :params refresh_token str:
         :returns access_token: Fresh access token for user
         :returns expires_in: Expiry in seconds
         :returns refresh_token: New refresh token for user if user is signed in otherwise send back same refresh token
@@ -81,7 +83,10 @@ class AuthenticationManager:
             logger.error(traceback.format_exc())
             raise e
             
-    def delete_refresh_token(self, refresh_token: Optional[str]) -> None:
+    def delete_refresh_token(self, refresh_token: str) -> None:
+        """
+        :params refresh_token str:
+        """
         if not isinstance(refresh_token, str) or not refresh_token.strip():
             raise AuthRefreshTokenMissingError("The refresh_token is missing or invalid.")
 
@@ -93,8 +98,8 @@ class AuthenticationManager:
                     raise AuthRefreshTokenInvalidError("The provided refresh token is invalid.")
 
                 conn.commit()
-        except AuthValidationError as e:
-            raise e
+        except AuthValidationError:
+            raise
         except Exception as e:
             logger.error(f"An unexpected error occurred while deleting a refresh token: {e}")
             logger.error(traceback.format_exc())
