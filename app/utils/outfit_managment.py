@@ -2,10 +2,9 @@ __all__ = ["outfit_manager"]
 
 import traceback
 import uuid
-import json
 from datetime import datetime
 from app.utils.database import Database
-from app.utils.exceptions import OutfitNotFoundError, OutfitNameTooShortError, OutfitNameTooLongError, OutfitDescriptionTooLongError, OutfitNameMissingError, OutfitClothingIDsMissingError, OutfitClothingIDInvalidError, OutfitSeasonsInvalidError, OutfitTagsInvalidError, OutfitIDMissingError, OutfitPermissionError, OutfitLimitInvalidError, OutfitOffsetInvalidError, OutfitValidationError, OutfitPublicMissingError, OutfitFavoriteMissingError, OutfitSceneMissingError, OutfitSceneInvalidError, OutfitPreviewInvalidError
+from app.utils.exceptions import OutfitNotFoundError, OutfitNameTooShortError, OutfitNameTooLongError, OutfitDescriptionTooLongError, OutfitNameMissingError, OutfitClothingIDsMissingError, OutfitClothingIDInvalidError, OutfitSeasonsInvalidError, OutfitTagsInvalidError, OutfitIDMissingError, OutfitPermissionError, OutfitLimitInvalidError, OutfitOffsetInvalidError, OutfitValidationError, OutfitPublicMissingError, OutfitFavoriteMissingError, OutfitSceneMissingError, OutfitSceneInvalidError
 from typing import Optional
 from mysql.connector.errors import IntegrityError
 from app.models.outfit import Outfit, OutfitTags, OutfitSeason, CanvasPlacement
@@ -361,6 +360,95 @@ class OutfitManager:
             raise e
 
         return outfit_list, total_outfits
+        
+    def patch_outfit(self, user_id: str, outfit_id: str, name: Optional[str] = None, is_favorite: Optional[bool] = None, is_public: Optional[bool] = None, seasons: Optional[list[str]] = None, tags: Optional[list[str]] = None):
+        try: 
+            with Database.getConnection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT is_favorite, is_public, name FROM outfits WHERE outfit_id = %s AND user_id = %s;", (outfit_id, user_id))
+                result = cursor.fetchone()
+                
+                if result is None:
+                    raise OutfitNotFoundError
+                
+                current_is_favorite, current_is_public, current_name = result
+                
+                fields = []
+                values = []
+            
+                if isinstance(name, str):
+                    if len(name) < 3:
+                        raise OutfitNameTooShortError()
+                    if len(name) > 50:
+                        raise OutfitNameTooLongError()
+                    if name != current_name:
+                        fields.append("name = %s")
+                        values.append(name)
+                        
+                if is_public is not None and is_public != current_is_public:
+                    fields.append("is_public = %s")
+                    values.append(is_public)
+                    
+                if is_favorite is not None and is_favorite != current_is_favorite:
+                    fields.append("is_favorite = %s")
+                    values.append(is_favorite)
+                    
+                if fields:
+                    query = f"UPDATE outfits SET {', '.join(fields)} WHERE outfit_id = %s;"
+                    cursor.execute(query, (*values, outfit_id))
+                    
+                if seasons is not None:
+                    self._update_outfit_seasons(cursor, outfit_id, seasons)
+                        
+                if tags is not None:
+                    self._update_outfit_tags(cursor, outfit_id, tags)
+                
+                conn.commit()
+        except (OutfitValidationError, OutfitNotFoundError):
+            raise
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while updating outfit with ID {outfit_id}: {e}")
+            logger.error(traceback.format_exc())
+            raise e
+        return
+    
+    def _update_outfit_seasons(self, cursor, outfit_id: str, new_seasons: list[str]):
+        cursor.execute("SELECT season FROM outfit_seasons WHERE outfit_id = %s;", (outfit_id,))
+        existing_seasons = {season[0] for season in cursor.fetchall()}
+        new_seasons_set = {season.strip().upper() for season in new_seasons}
+        
+        for season in new_seasons_set:
+            if season not in OutfitSeason.__members__:
+                raise OutfitSeasonsInvalidError(f"Invalid season: {season}")
+            
+        seasons_to_add = new_seasons_set - existing_seasons
+        seasons_to_remove = existing_seasons - new_seasons_set
+        
+        if seasons_to_remove:
+            cursor.execute("DELETE FROM outfit_seasons WHERE outfit_id = %s AND season IN %s;", (outfit_id, tuple(seasons_to_remove)))
+            
+        if seasons_to_add:
+            values = [(outfit_id, season) for season in seasons_to_add]
+            cursor.executemany("INSERT INTO outfit_seasons (outfit_id, season) VALUES (%s, %s);", values)
+            
+    def _update_outfit_tags(self, cursor, outfit_id: str, new_tags: list[str]) -> None:
+        cursor.execute("SELECT tag FROM outfit_tags WHERE outfit_id = %s;", (outfit_id,))
+        existing_tags = {tag[0] for tag in cursor.fetchall()}
+        new_tags_set = {tag.strip().upper() for tag in new_tags}
+        
+        for tag in new_tags_set:
+            if tag not in OutfitTags.__members__:
+                raise OutfitTagsInvalidError(f"Invalid tag: {tag}")
+        
+        tags_to_add = new_tags_set - existing_tags
+        tags_to_remove = existing_tags - new_tags_set
+        
+        if tags_to_remove:
+            cursor.execute("DELETE FROM outfit_tags WHERE outfit_id = %s AND tag IN %s;", (outfit_id, tuple(tags_to_remove)))
+        
+        if tags_to_add:
+            values = [(outfit_id, tag) for tag in tags_to_add]
+            cursor.executemany("INSERT INTO outfit_tags (outfit_id, tag) VALUES (%s, %s);", values)
         
     def update_outfit(self, user_id: str, outfit_id: str, name: Optional[str] = None, is_public: Optional[bool] = None, seasons: Optional[list[str]] = None, tags: Optional[list[str]] = None, clothing_ids: Optional[list[str]] = None, description: Optional[str] = None) -> Outfit:
         
