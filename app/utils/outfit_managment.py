@@ -2,15 +2,13 @@ __all__ = ["outfit_manager"]
 
 import traceback
 import uuid
-import json
 from datetime import datetime
 from app.utils.database import Database
-from app.utils.exceptions import OutfitNotFoundError, OutfitNameTooShortError, OutfitNameTooLongError, OutfitDescriptionTooLongError, OutfitNameMissingError, OutfitClothingIDsMissingError, OutfitClothingIDInvalidError, OutfitSeasonsInvalidError, OutfitTagsInvalidError, OutfitIDMissingError, OutfitPermissionError, OutfitLimitInvalidError, OutfitOffsetInvalidError, OutfitValidationError, OutfitPublicMissingError, OutfitFavoriteMissingError, OutfitSceneMissingError, OutfitSceneInvalidError, OutfitPreviewInvalidError
-from typing import Optional
+from app.utils.exceptions import OutfitNotFoundError, OutfitNameTooShortError, OutfitNameTooLongError, OutfitDescriptionTooLongError, OutfitNameMissingError, OutfitClothingIDsMissingError, OutfitClothingIDInvalidError, OutfitSeasonsInvalidError, OutfitTagsInvalidError, OutfitIDMissingError, OutfitPermissionError, OutfitLimitInvalidError, OutfitOffsetInvalidError, OutfitValidationError, OutfitPublicMissingError, OutfitFavoriteMissingError, OutfitSceneMissingError, OutfitSceneInvalidError
+from typing import Optional, cast
 from mysql.connector.errors import IntegrityError
 from app.models.outfit import Outfit, OutfitTags, OutfitSeason, CanvasPlacement
 from app.utils.helpers import helper
-from app.utils.authentication_managment import authentication_manager
 from app.utils.clothing_managment import clothing_manager
 from app.utils.image_managment import image_manager
 from app.utils.logging import get_logger
@@ -230,49 +228,32 @@ class OutfitManager:
 
         return outfit
     
-    def get_outfit_by_id(self, token: str, outfit_id: Optional[str]) -> Outfit:
+    def get_outfit_by_id(self, user_id: str, outfit_id: Optional[str]) -> Outfit:
         if not isinstance(outfit_id, str) or not outfit_id.strip():
             raise OutfitIDMissingError("The provided outfit ID is missing or invalid.")
         
-        user_id = authentication_manager.get_user_id_from_token(token)
-        
         try:
             with Database.getConnection() as conn:
-                cursor = conn.cursor(dictionary=True)
-                cursor.execute("SELECT outfit_id, is_public, is_favorite, name, created_at, user_id, image_id, description FROM outfits WHERE outfit_id = %s", (outfit_id, ))
+                cursor = conn.cursor()
+                cursor.execute("SELECT is_public, is_favorite, name, created_at, image_id, description, updated_at FROM outfits WHERE outfit_id = %s AND user_id = %s", (outfit_id, user_id,))
                 outfit = cursor.fetchone()
                 
                 if outfit is None:
                         raise OutfitNotFoundError("The provided ID does not match any outfit in the database.")
-                        
-                if outfit[4] != user_id:
-                    if not outfit[1]:
-                        raise OutfitPermissionError("The provided ID does not match any public outfit in the database.")
+                
+                outift_is_public, outfit_is_favorite, outfit_name, outfit_created_at, outfit_image_id, outfit_description, outfit_updated_at = outfit
                     
                 cursor.execute("SELECT season FROM outfit_seasons WHERE outfit_id = %s;", (outfit_id,))
-                seasons = cursor.fetchall()
+                seasons = [OutfitSeason[cast(str, season)] for (season,) in cursor.fetchall()]
                     
                 cursor.execute("SELECT tag FROM outfit_tags WHERE outfit_id = %s;", (outfit_id,))
-                tags = cursor.fetchall()
+                tags = [OutfitTags[cast(str, tag)] for (tag,) in cursor.fetchall()]
                     
-                cursor.execute("SELECT clothing_id FROM outfit_clothing WHERE outfit_id = %s;", (outfit_id,))
-                clothing_list = cursor.fetchall()
+                cursor.execute("SELECT clothing_id, position_x, position_y, z_index, scale, rotation FROM outfit_clothing WHERE outfit_id = %s;", (outfit_id,))
+                rows = cast(list[tuple], cursor.fetchall())
+                clothing_canvas = [helper._parse_canvas_row(row) for row in rows]
                 
-                clothing_list = helper.ensure_dict(clothing_list)
-                    
-                clothing_canvas = [
-                    CanvasPlacement(
-                        clothing_id=helper.ensure_dict(clothing).get("clothing_id"),
-                        x=helper.ensure_dict(clothing).get("position_x"),
-                        y=helper.ensure_dict(clothing).get("position_y"),
-                        z=helper.ensure_dict(clothing).get("z_index"),
-                        scale=helper.ensure_dict(clothing).get("scale"),
-                        rotation=helper.ensure_dict(clothing).get("rotation")
-                    )
-                    for clothing in clothing_list
-                ]
-
-                outfit = Outfit.from_dict(outfit, clothing_canvas, [OutfitSeason[season[0]] for season in seasons], [OutfitTags[tag[0]] for tag in tags])
+                outfit = Outfit(outfit_id, bool(outift_is_public), bool(outfit_is_favorite), cast(str, outfit_name), cast(datetime, outfit_created_at), cast(datetime, outfit_updated_at), user_id, cast(str, outfit_image_id), clothing_canvas, seasons, tags, cast(str, outfit_description))
         except OutfitNotFoundError as e:
             raise e
         except OutfitPermissionError as e:
@@ -365,113 +346,99 @@ class OutfitManager:
 
         return outfit_list, total_outfits
         
-    def update_outfit(self, token: str, outfit_id: str, name: Optional[str] = None, is_public: Optional[bool] = None, seasons: Optional[list[str]] = None, tags: Optional[list[str]] = None, clothing_ids: Optional[list[str]] = None, description: Optional[str] = None) -> Outfit:
-        user_id = authentication_manager.get_user_id_from_token(token)
-        
-        fields = []
-        values = []
-
-        try:
+    def patch_outfit(self, user_id: str, outfit_id: str, name: Optional[str] = None, is_favorite: Optional[bool] = None, is_public: Optional[bool] = None, seasons: Optional[list[str]] = None, tags: Optional[list[str]] = None) -> Outfit:
+        try: 
             with Database.getConnection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT outfit_id, is_public, name, created_at, user_id, description FROM outfits WHERE outfit_id = %s AND user_id = %s;", (outfit_id, user_id))
+                cursor.execute("SELECT is_favorite, is_public, name FROM outfits WHERE outfit_id = %s AND user_id = %s;", (outfit_id, user_id))
                 result = cursor.fetchone()
-
+                
                 if result is None:
-                    raise OutfitNotFoundError("The provided ID does not match any outfit in the database for the current user.")
-
+                    raise OutfitNotFoundError
+                
+                current_is_favorite, current_is_public, current_name = result
+                
+                fields = []
+                values = []
+            
                 if isinstance(name, str):
                     if len(name) < 3:
-                        raise OutfitNameTooShortError("The provided name is too short, it has to be at least 3 characters long.")
-                    
+                        raise OutfitNameTooShortError()
                     if len(name) > 50:
-                        raise OutfitNameTooLongError("The provided name is too long, it has to be at most 50 characters long.")
-                    
-                    if name != result[2]:
+                        raise OutfitNameTooLongError()
+                    if name != current_name:
                         fields.append("name = %s")
                         values.append(name)
-
-                if is_public is not None and is_public != result[1]:
+                        
+                if is_public is not None and is_public != current_is_public:
                     fields.append("is_public = %s")
                     values.append(is_public)
-
-                if description is not None and description != result[5]:
-                    if len(description) > 255:
-                        raise OutfitDescriptionTooLongError("The provided description is too long.")
                     
-                    fields.append("description = %s")
-                    values.append(description)
-
+                if is_favorite is not None and is_favorite != current_is_favorite:
+                    fields.append("is_favorite = %s")
+                    values.append(is_favorite)
+                    
                 if fields:
-                    cursor.execute(f"UPDATE outfits SET {', '.join(fields)} WHERE outfit_id = %s;", (*values, outfit_id))
-
-                cursor.execute("SELECT season FROM outfit_seasons WHERE outfit_id = %s;", (outfit_id,))
-                existing_seasons: list[str] = [season[0] for season in cursor.fetchall()]
-
-                if seasons is not None and seasons != existing_seasons:
-                    new_seasons = [season for season in seasons if season not in existing_seasons]
-                    old_seasons = [season for season in existing_seasons if season not in seasons]
+                    query = f"UPDATE outfits SET {', '.join(fields)} WHERE outfit_id = %s;"
+                    cursor.execute(query, (*values, outfit_id))
                     
-                    if old_seasons:
-                        cursor.execute("DELETE FROM outfit_seasons WHERE outfit_id = %s AND season IN %s;", (outfit_id, tuple(old_seasons)))
-
-                    if new_seasons:
-                        for season in new_seasons:
-                            if season.strip().upper() not in OutfitSeason.__members__:
-                                raise OutfitSeasonsInvalidError(f"The provided season ({season}) is not valid.")
-
-                            cursor.execute("INSERT INTO outfit_seasons(outfit_id, season) VALUES (%s, %s);", (outfit_id, season.strip().upper()))
-
-                cursor.execute("SELECT tag FROM outfit_tags WHERE outfit_id = %s;", (outfit_id,))
-                existing_tags: list[str] = [tag[0] for tag in cursor.fetchall()]
-
-                if tags is not None and tags != existing_tags:
-                    new_tags = [tag for tag in tags if tag not in existing_tags]
-                    old_tags = [tag for tag in existing_tags if tag not in tags]
-                    
-                    if old_tags:
-                        cursor.execute("DELETE FROM outfit_tags WHERE outfit_id = %s AND tag IN %s;", (outfit_id, tuple(old_tags)))
-
-                    if new_tags:
-                        for tag in new_tags:
-                            if tag.strip().upper() not in OutfitTags.__members__:
-                                raise OutfitTagsInvalidError(f"The provided tag ({tag}) is not valid.")
-
-                            cursor.execute("INSERT INTO outfit_tags(outfit_id, tag) VALUES (%s, %s);", (outfit_id, tag.strip().upper()))
-
-                cursor.execute("SELECT clothing_id FROM outfit_clothing WHERE outfit_id = %s;", (outfit_id,))
-                existing_clothing_ids: list[str] = [clothing_id[0] for clothing_id in cursor.fetchall()]
-
-                if clothing_ids is not None and clothing_ids != existing_clothing_ids:
-                    new_clothing_ids = [clothing_id for clothing_id in clothing_ids if clothing_id not in existing_clothing_ids]
-                    old_clothing_ids = [clothing_id for clothing_id in existing_clothing_ids if clothing_id not in clothing_ids]
-                    
-                    if old_clothing_ids:
-                        cursor.execute("DELETE FROM outfit_clothing WHERE outfit_id = %s AND clothing_id IN %s;", (outfit_id, tuple(old_clothing_ids)))
-
-                    if new_clothing_ids:
-                        for clothing_id in new_clothing_ids:
-                            cursor.execute("INSERT INTO outfit_clothing(outfit_id, clothing_id) VALUES (%s, %s);", (outfit_id, clothing_id))
-                            
+                if seasons is not None:
+                    self._update_outfit_seasons(cursor, outfit_id, seasons)
+                        
+                if tags is not None:
+                    self._update_outfit_tags(cursor, outfit_id, tags)
+                
                 conn.commit()
-        except (OutfitValidationError) as e:
-            raise e
-        except IntegrityError as e:
-            raise OutfitClothingIDInvalidError(f"The provided clothing ID(s) are invalid or do not belong to the user: {e}")
-        except OutfitNotFoundError as e:
-            raise e
+        except (OutfitValidationError, OutfitNotFoundError):
+            raise
         except Exception as e:
             logger.error(f"An unexpected error occurred while updating outfit with ID {outfit_id}: {e}")
             logger.error(traceback.format_exc())
             raise e
         
-        return self.get_outfit_by_id(token, outfit_id)
+        return self.get_outfit_by_id(user_id, outfit_id)
+    
+    def _update_outfit_seasons(self, cursor, outfit_id: str, new_seasons: list[str]) -> None:
+        cursor.execute("SELECT season FROM outfit_seasons WHERE outfit_id = %s;", (outfit_id,))
+        existing_seasons = {season[0] for season in cursor.fetchall()}
+        new_seasons_set = {season.strip().upper() for season in new_seasons}
+        
+        for season in new_seasons_set:
+            if season not in OutfitSeason.__members__:
+                raise OutfitSeasonsInvalidError(f"Invalid season: {season}")
+            
+        seasons_to_add = new_seasons_set - existing_seasons
+        seasons_to_remove = existing_seasons - new_seasons_set
+        
+        if seasons_to_remove:
+            cursor.execute("DELETE FROM outfit_seasons WHERE outfit_id = %s AND season IN %s;", (outfit_id, tuple(seasons_to_remove)))
+            
+        if seasons_to_add:
+            values = [(outfit_id, season) for season in seasons_to_add]
+            cursor.executemany("INSERT INTO outfit_seasons (outfit_id, season) VALUES (%s, %s);", values)
+            
+    def _update_outfit_tags(self, cursor, outfit_id: str, new_tags: list[str]) -> None:
+        cursor.execute("SELECT tag FROM outfit_tags WHERE outfit_id = %s;", (outfit_id,))
+        existing_tags = {tag[0] for tag in cursor.fetchall()}
+        new_tags_set = {tag.strip().upper() for tag in new_tags}
+        
+        for tag in new_tags_set:
+            if tag not in OutfitTags.__members__:
+                raise OutfitTagsInvalidError(f"Invalid tag: {tag}")
+        
+        tags_to_add = new_tags_set - existing_tags
+        tags_to_remove = existing_tags - new_tags_set
+        
+        if tags_to_remove:
+            cursor.execute("DELETE FROM outfit_tags WHERE outfit_id = %s AND tag IN %s;", (outfit_id, tuple(tags_to_remove)))
+        
+        if tags_to_add:
+            values = [(outfit_id, tag) for tag in tags_to_add]
+            cursor.executemany("INSERT INTO outfit_tags (outfit_id, tag) VALUES (%s, %s);", values)
 
-    def delete_outfit_by_id(self, token: str, outfit_id: Optional[str]) -> None:
+    def delete_outfit_by_id(self, user_id: str, outfit_id: Optional[str]) -> None:
         if not isinstance(outfit_id, str) or not outfit_id.strip():
             raise OutfitIDMissingError("The provided outfit ID is missing or invalid.")
-        
-        user_id = authentication_manager.get_user_id_from_token(token)
 
         try:
             with Database.getConnection() as conn:

@@ -35,7 +35,7 @@ class OutfitValidationError(ValidationError):
         super().__init__(message)
         
 class OutfitNotFoundError(NotFoundError):
-    def __init__(self, message="Outfit not found"):
+    def __init__(self, message="The requested outfit does not exist"):
         super().__init__(message)
 
 class OutfitPermissionError(PermissionError):
