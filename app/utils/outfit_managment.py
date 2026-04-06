@@ -377,9 +377,6 @@ class OutfitManager:
                 if is_favorite is not None and is_favorite != current_is_favorite:
                     fields.append("is_favorite = %s")
                     values.append(is_favorite)
-                
-                if scene is not None:
-                    threading.Thread(target=self._update_outfit_scene, args=(user_id, outfit_id, scene)).start()
                     
                 if fields:
                     query = f"UPDATE outfits SET {', '.join(fields)} WHERE outfit_id = %s;"
@@ -390,6 +387,9 @@ class OutfitManager:
                         
                 if tags is not None:
                     self._update_outfit_tags(cursor, outfit_id, tags)
+                        
+                if scene is not None:
+                    self._update_outfit_scene(user_id, outfit_id, scene)
                 
                 conn.commit()
         except (OutfitValidationError, OutfitNotFoundError):
@@ -446,7 +446,7 @@ class OutfitManager:
                 
                 clothing_canvas.append(CanvasPlacement(clothing_id=clothing_id, x=item["x"], y=item["y"], z=item["z"], scale=item["scale"], rotation=item["rotation"]))
             
-            image_manager.generate_outfit_preview(outfit_id, items=validated_items)
+            threading.Thread(target=image_manager.generate_outfit_preview, args=(outfit_id, validated_items)).start()
             
             cursor.execute("DELETE FROM outfit_clothing WHERE outfit_id = %s;", (outfit_id, ))
             
