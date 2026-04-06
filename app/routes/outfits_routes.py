@@ -32,7 +32,8 @@ def patch_outfit(outfit_id: str):
     is_public = data.get("is_public")
     seasons = data.get("seasons")
     tags = data.get("tags")
+    scene = data.get("scene")
     
-    outfit = outfit_manager.patch_outfit(g.user_id, outfit_id, name=name, is_favorite=is_favorite, is_public=is_public, seasons=seasons, tags=tags)
+    outfit = outfit_manager.patch_outfit(g.user_id, outfit_id, name=name, is_favorite=is_favorite, is_public=is_public, seasons=seasons, tags=tags, scene=scene)
     
     return jsonify({"item": outfit.to_dict()}), 200
