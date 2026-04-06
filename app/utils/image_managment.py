@@ -3,6 +3,7 @@ __all__ = ["image_manager"]
 import traceback
 import uuid
 import os
+import math
 from typing import Optional
 from app.utils.exceptions import ImageUnclearError, UnsupportedFileTypeError, FileTooLargeError
 from werkzeug.datastructures import FileStorage
@@ -138,8 +139,6 @@ class ImageManager:
         except Exception as e:
             logger.error(f"An unexpected error occurred while moving the image: {e}")
             raise e
-            
-    # ! DELETION of old temp images
     
     def save_outfit_preview(self, preview_file: FileStorage) -> tuple[str, str]:
         """
@@ -214,8 +213,7 @@ class ImageManager:
         target_height = target_width * aspect
 
         image = image.resize((int(target_width), int(target_height)), Image.LANCZOS)
-        
-        image = image.rotate(-item_data["rotation"], expand=True)
+        image = image.rotate(-math.degrees(item_data["rotation"]), expand=True)
         
         center_x = item_data["x"] * canvas.width
         center_y = item_data["y"] * canvas.height
