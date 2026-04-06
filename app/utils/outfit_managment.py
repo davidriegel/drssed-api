@@ -21,7 +21,7 @@ class OutfitManager:
         deleted_ids: list[str] = []
         
         statement = """
-            SELECT outfit_id, name, image_id, is_favorite, is_public, created_at, updated_at, description, user_id
+            SELECT outfit_id, name, is_favorite, is_public, created_at, updated_at, description, user_id
             FROM outfits
             WHERE user_id = %s AND updated_at > %s AND deleted_at IS NULL
             ORDER BY updated_at ASC
@@ -182,7 +182,7 @@ class OutfitManager:
             
             clothing_canvas.append(CanvasPlacement(clothing_id=clothing_id, x=item["x"], y=item["y"], z=item["z"], scale=item["scale"], rotation=item["rotation"]))
         
-        _, image_id =image_manager.generate_outfit_preview(items=validated_items)
+        image_manager.generate_outfit_preview(outfit_id, items=validated_items)
 
         outfit = Outfit(
             outfit_id=outfit_id,
@@ -193,7 +193,6 @@ class OutfitManager:
             updated_at=datetime.now(),
             user_id=user_id,
             scene=clothing_canvas,
-            image_id=image_id,
             seasons=seasons,
             tags=tags,
             description=description
@@ -203,10 +202,10 @@ class OutfitManager:
             with Database.getConnection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    INSERT INTO outfits(outfit_id, is_public, is_favorite, name, user_id, image_id, description)
+                    INSERT INTO outfits(outfit_id, is_public, is_favorite, name, user_id, description)
                     VALUES (%s, %s, %s, %s, %s, %s, %s);
                 """, (
-                    outfit_id, is_public, is_favorite, name, user_id, image_id, description, 
+                    outfit_id, is_public, is_favorite, name, user_id, description, 
                 ))
 
                 if outfit.seasons:
@@ -221,7 +220,7 @@ class OutfitManager:
                 conn.commit()
         except Exception as e:
             try:
-                image_manager.delete_outfit_preview(image_id)
+                image_manager.delete_outfit_preview(outfit_id)
             except Exception:
                 pass
             raise
@@ -235,13 +234,13 @@ class OutfitManager:
         try:
             with Database.getConnection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT is_public, is_favorite, name, created_at, image_id, description, updated_at FROM outfits WHERE outfit_id = %s AND user_id = %s", (outfit_id, user_id,))
+                cursor.execute("SELECT is_public, is_favorite, name, created_at, description, updated_at FROM outfits WHERE outfit_id = %s AND user_id = %s", (outfit_id, user_id,))
                 outfit = cursor.fetchone()
                 
                 if outfit is None:
                         raise OutfitNotFoundError("The provided ID does not match any outfit in the database.")
                 
-                outift_is_public, outfit_is_favorite, outfit_name, outfit_created_at, outfit_image_id, outfit_description, outfit_updated_at = outfit
+                outift_is_public, outfit_is_favorite, outfit_name, outfit_created_at, outfit_description, outfit_updated_at = outfit
                     
                 cursor.execute("SELECT season FROM outfit_seasons WHERE outfit_id = %s;", (outfit_id,))
                 seasons = [OutfitSeason[cast(str, season)] for (season,) in cursor.fetchall()]
@@ -253,7 +252,7 @@ class OutfitManager:
                 rows = cast(list[tuple], cursor.fetchall())
                 clothing_canvas = [helper._parse_canvas_row(row) for row in rows]
                 
-                outfit = Outfit(outfit_id, bool(outift_is_public), bool(outfit_is_favorite), cast(str, outfit_name), cast(datetime, outfit_created_at), cast(datetime, outfit_updated_at), user_id, cast(str, outfit_image_id), clothing_canvas, seasons, tags, cast(str, outfit_description))
+                outfit = Outfit(outfit_id, bool(outift_is_public), bool(outfit_is_favorite), cast(str, outfit_name), cast(datetime, outfit_created_at), cast(datetime, outfit_updated_at), user_id, clothing_canvas, seasons, tags, cast(str, outfit_description))
         except OutfitNotFoundError as e:
             raise e
         except OutfitPermissionError as e:
@@ -404,7 +403,7 @@ class OutfitManager:
         
         return self.get_outfit_by_id(user_id, outfit_id)
     
-    def _update_outfit_scene(self, cursor, user_id: str, outfit_id: str, scene: dict) -> str:
+    def _update_outfit_scene(self, cursor, user_id: str, outfit_id: str, scene: dict) -> None:
         """
         Returns: image_id
         """
@@ -449,14 +448,12 @@ class OutfitManager:
             
             clothing_canvas.append(CanvasPlacement(clothing_id=clothing_id, x=item["x"], y=item["y"], z=item["z"], scale=item["scale"], rotation=item["rotation"]))
         
-        _, image_id =image_manager.generate_outfit_preview(items=validated_items)
+        image_manager.generate_outfit_preview(outfit_id, items=validated_items)
         
         cursor.execute("DELETE FROM outfit_clothing WHERE outfit_id = %s;", (outfit_id, ))
         
         for item in clothing_canvas:
             cursor.execute("INSERT INTO outfit_clothing(outfit_id, clothing_id, position_x, position_y, z_index, scale, rotation) VALUES (%s, %s, %s, %s, %s, %s, %s);", (outfit_id, item.clothing_id, item.x, item.y, item.z, item.scale, item.rotation))
-                    
-        return image_id
     
     def _update_outfit_seasons(self, cursor, outfit_id: str, new_seasons: list[str]) -> None:
         cursor.execute("SELECT season FROM outfit_seasons WHERE outfit_id = %s;", (outfit_id,))

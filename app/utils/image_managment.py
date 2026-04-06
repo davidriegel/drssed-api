@@ -140,9 +140,9 @@ class ImageManager:
             logger.error(f"An unexpected error occurred while moving the image: {e}")
             raise e
     
-    def save_outfit_preview(self, preview_file: FileStorage) -> tuple[str, str]:
+    def save_outfit_preview(self, outfit_id: str, preview_file: FileStorage) -> str:
         """
-        Returns: (public_url, image_id)
+        Returns: public_url
         """
         
         mimetype = (preview_file.mimetype or "").lower()
@@ -160,12 +160,11 @@ class ImageManager:
         if bbox:
             img = img.crop(bbox)
 
-        filename = str(uuid.uuid4())
-        path = f"app/static/outfit_collages/{filename}.webp"
+        path = f"app/static/outfit_collages/{outfit_id}.webp"
         img.save(path, "WEBP")  # optional: quality=85, method=6
 
-        public_url = str(urljoin(os.getenv("API_BASE_URL", ""), f"uploads/outfit_collages/{filename}.webp"))
-        return public_url, filename
+        public_url = str(urljoin(os.getenv("API_BASE_URL", ""), f"uploads/outfit_collages/{outfit_id}.webp"))
+        return public_url
     
     def load_clothing_image_by_id(self, image_id: str) -> Image.Image:
         image_path = os.path.join(
@@ -178,9 +177,9 @@ class ImageManager:
 
         return Image.open(image_path)
     
-    def generate_outfit_preview(self, items: list[dict]) -> tuple[str, str]:
+    def generate_outfit_preview(self, outfit_id: str, items: list[dict]) -> str:
         """
-        Returns: (public_url, image_id)
+        Returns: public_url
         """
         
         canvas_width = 1024
@@ -197,12 +196,11 @@ class ImageManager:
                 entry["image_id"]
             )
         
-        filename = str(uuid.uuid4())
-        path = f"app/static/outfit_collages/{filename}.webp"
+        path = f"app/static/outfit_collages/{outfit_id}.webp"
         canvas.save(path, "WEBP")
         
-        public_url = str(urljoin(os.getenv("API_BASE_URL", ""), f"uploads/outfit_collages/{filename}.webp"))
-        return public_url, filename
+        public_url = str(urljoin(os.getenv("API_BASE_URL", ""), f"uploads/outfit_collages/{outfit_id}.webp"))
+        return public_url
         
     def _place_item(self, canvas: Image.Image, item_data: dict, image_id: str):
         image = self.load_clothing_image_by_id(image_id)
@@ -223,7 +221,7 @@ class ImageManager:
         
         canvas.paste(image, (paste_x, paste_y), image)
     
-    def delete_outfit_preview(self, image_id: str):
-        os.remove(f"app/static/outfit_collages/{image_id}.webp")
+    def delete_outfit_preview(self, outfit_id: str):
+        os.remove(f"app/static/outfit_collages/{outfit_id}.webp")
     
 image_manager = ImageManager()

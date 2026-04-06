@@ -37,7 +37,6 @@ class Outfit:
     created_at: datetime
     updated_at: datetime
     user_id: str
-    image_id: str
     scene: Optional[list[CanvasPlacement]] = None
     seasons: Optional[list[OutfitSeason]] = None
     tags: Optional[list[OutfitTags]] = None
@@ -63,7 +62,6 @@ class Outfit:
             created_at=core.get("created_at"),
             updated_at=core.get("updated_at"),
             user_id=core.get("user_id"),
-            image_id=core.get("image_id"),
             scene=scene,
             seasons=seasons,
             tags=tags,
