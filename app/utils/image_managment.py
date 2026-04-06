@@ -185,7 +185,7 @@ class ImageManager:
         """
         
         canvas_width = 1024
-        canvas_height = 1024
+        canvas_height = int(canvas_width * 4 / 3) 
 
         canvas = Image.new("RGBA", (canvas_width, canvas_height), (255, 255, 255, 0))
         
