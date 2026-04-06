@@ -2,6 +2,7 @@ __all__ = ["outfit_manager"]
 
 import traceback
 import uuid
+import threading
 from datetime import datetime
 from app.utils.database import Database
 from app.utils.exceptions import OutfitNotFoundError, OutfitNameTooShortError, OutfitNameTooLongError, OutfitDescriptionTooLongError, OutfitNameMissingError, OutfitClothingIDsMissingError, OutfitClothingIDInvalidError, OutfitSeasonsInvalidError, OutfitTagsInvalidError, OutfitIDMissingError, OutfitPermissionError, OutfitLimitInvalidError, OutfitOffsetInvalidError, OutfitValidationError, OutfitPublicMissingError, OutfitFavoriteMissingError, OutfitSceneMissingError, OutfitSceneInvalidError
@@ -378,10 +379,7 @@ class OutfitManager:
                     values.append(is_favorite)
                 
                 if scene is not None:
-                    image_id = self._update_outfit_scene(cursor, user_id, outfit_id, scene)
-                    
-                    fields.append("image_id = %s")
-                    values.append(image_id)
+                    threading.Thread(target=self._update_outfit_scene, args=(user_id, outfit_id, scene)).start()
                     
                 if fields:
                     query = f"UPDATE outfits SET {', '.join(fields)} WHERE outfit_id = %s;"
@@ -403,57 +401,57 @@ class OutfitManager:
         
         return self.get_outfit_by_id(user_id, outfit_id)
     
-    def _update_outfit_scene(self, cursor, user_id: str, outfit_id: str, scene: dict) -> None:
+    def _update_outfit_scene(self, user_id: str, outfit_id: str, scene: dict) -> None:
         """
         Returns: image_id
         """
         if len(scene) < 2:
             raise OutfitSceneInvalidError("scene.items must contain at least 2 items.")
 
-        clothing_ids = []
-        for item in scene:
-            cid = item.get("clothing_id")
-            if not isinstance(cid, str) or not cid.strip():
-                raise OutfitSceneInvalidError("scene item clothing_id missing.")
-            clothing_ids.append(cid)
+        with Database.getConnection() as conn:
+            cursor = conn.cursor()
+            clothing_ids = []
+            for item in scene:
+                cid = item.get("clothing_id")
+                if not isinstance(cid, str) or not cid.strip():
+                    raise OutfitSceneInvalidError("scene item clothing_id missing.")
+                clothing_ids.append(cid)
 
-            for sub_key in ("x", "y", "scale", "rotation", "z"):
-                if sub_key not in item:
-                    raise OutfitSceneInvalidError(f"scene item missing '{sub_key}'.")
+                for sub_key in ("x", "y", "scale", "rotation", "z"):
+                    if sub_key not in item:
+                        raise OutfitSceneInvalidError(f"scene item missing '{sub_key}'.")
 
-        for cid in clothing_ids:
-            with Database.getConnection() as conn:
-                cursor = conn.cursor()
+            for cid in clothing_ids:
                 cursor.execute(
                     "SELECT 1 FROM clothing WHERE clothing_id = %s AND user_id = %s;",
                     (cid, user_id)
                 )
                 if cursor.fetchone() is None:
                     raise OutfitClothingIDInvalidError(f"Clothing ID {cid} invalid or not owned by user.")
-        
-        validated_items = []
-        clothing_canvas: list[CanvasPlacement] = []
-
-        for item in scene:
-            clothing_id = item["clothing_id"]
-            image_id = clothing_manager.get_image_id_by_clothing_id(
-                user_id=user_id,
-                clothing_id=clothing_id
-            )
-
-            validated_items.append({
-                "item": item,
-                "image_id": image_id
-            })
             
-            clothing_canvas.append(CanvasPlacement(clothing_id=clothing_id, x=item["x"], y=item["y"], z=item["z"], scale=item["scale"], rotation=item["rotation"]))
-        
-        image_manager.generate_outfit_preview(outfit_id, items=validated_items)
-        
-        cursor.execute("DELETE FROM outfit_clothing WHERE outfit_id = %s;", (outfit_id, ))
-        
-        for item in clothing_canvas:
-            cursor.execute("INSERT INTO outfit_clothing(outfit_id, clothing_id, position_x, position_y, z_index, scale, rotation) VALUES (%s, %s, %s, %s, %s, %s, %s);", (outfit_id, item.clothing_id, item.x, item.y, item.z, item.scale, item.rotation))
+            validated_items = []
+            clothing_canvas: list[CanvasPlacement] = []
+
+            for item in scene:
+                clothing_id = item["clothing_id"]
+                image_id = clothing_manager.get_image_id_by_clothing_id(
+                    user_id=user_id,
+                    clothing_id=clothing_id
+                )
+
+                validated_items.append({
+                    "item": item,
+                    "image_id": image_id
+                })
+                
+                clothing_canvas.append(CanvasPlacement(clothing_id=clothing_id, x=item["x"], y=item["y"], z=item["z"], scale=item["scale"], rotation=item["rotation"]))
+            
+            image_manager.generate_outfit_preview(outfit_id, items=validated_items)
+            
+            cursor.execute("DELETE FROM outfit_clothing WHERE outfit_id = %s;", (outfit_id, ))
+            
+            for item in clothing_canvas:
+                cursor.execute("INSERT INTO outfit_clothing(outfit_id, clothing_id, position_x, position_y, z_index, scale, rotation) VALUES (%s, %s, %s, %s, %s, %s, %s);", (outfit_id, item.clothing_id, item.x, item.y, item.z, item.scale, item.rotation))
     
     def _update_outfit_seasons(self, cursor, outfit_id: str, new_seasons: list[str]) -> None:
         cursor.execute("SELECT season FROM outfit_seasons WHERE outfit_id = %s;", (outfit_id,))
