@@ -288,7 +288,7 @@ class OutfitManager:
         where_clause = " AND ".join(conditions)
         
         statement = f"""
-            SELECT outfit_id, is_public, is_favorite, name, user_id, image_id, created_at
+            SELECT outfit_id, is_public, is_favorite, name, user_id, created_at
             FROM outfits
             WHERE {where_clause}
             ORDER BY created_at DESC
@@ -402,9 +402,6 @@ class OutfitManager:
         return self.get_outfit_by_id(user_id, outfit_id)
     
     def _update_outfit_scene(self, cursor, user_id: str, outfit_id: str, scene: dict) -> None:
-        """
-        Returns: image_id
-        """
         if len(scene) < 2:
             raise OutfitSceneInvalidError("scene.items must contain at least 2 items.")
 
