@@ -59,6 +59,13 @@ CREATE TABLE
         FOREIGN KEY (clothing_id) REFERENCES clothing (clothing_id) ON DELETE CASCADE
     );
 
+CREATE EVENT IF NOT EXISTS delete_soft_deleted_clothing
+ON SCHEDULE EVERY 1 DAY
+DO
+DELETE FROM clothing
+WHERE deleted_at IS NOT NULL 
+AND deleted_at < NOW() - INTERVAL 7 DAY;
+
 -- Outfits
 CREATE TABLE
     IF NOT EXISTS outfits (
@@ -105,3 +112,11 @@ CREATE TABLE
         FOREIGN KEY (outfit_id) REFERENCES outfits (outfit_id) ON DELETE CASCADE,
         FOREIGN KEY (clothing_id) REFERENCES clothing (clothing_id) ON DELETE CASCADE
     );
+    
+CREATE EVENT
+IF NOT EXISTS delete_soft_deleted_outfits
+ON SCHEDULE EVERY 1 DAY
+DO
+DELETE FROM outfits
+WHERE deleted_at IS NOT NULL 
+AND deleted_at < NOW() - INTERVAL 7 DAY;
