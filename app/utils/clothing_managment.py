@@ -25,7 +25,7 @@ class ClothingManager:
                 if cursor.fetchone() is not None:
                     return
             
-            os.remove(filename + ".webp")
+            os.remove(f"app/static/outfit_collages/{filename}.webp")
         except FileNotFoundError:
             pass
         except PermissionError:
