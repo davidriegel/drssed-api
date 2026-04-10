@@ -16,7 +16,7 @@ def get_clothing_piece(clothing_id: str):
 @limiter.limit('5 per minute')
 @authorize_request
 def delete_clothing_piece(clothing_id: str):
-    clothing_manager.delete_clothing_by_id(g.user_id, clothing_id)
+    clothing_manager.soft_delete_clothing_by_id(g.user_id, clothing_id)
 
     return "", 204
 

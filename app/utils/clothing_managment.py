@@ -6,7 +6,7 @@ from re import match as re_match
 from datetime import datetime
 from app.utils.database import Database
 from app.utils.exceptions import ClothingNotFoundError, ClothingImageInvalidError, ClothingNameMissingError, ClothingCategoryMissingError, ClothingColorMissingError, ClothingImageMissingError, ClothingNameTooShortError, ClothingNameTooLongError, ClothingDescriptionTooLongError, ClothingIDMissingError, ClothingSeasonsInvalidError, ClothingTagsInvalidError, ClothingValidationError
-from typing import Optional
+from typing import Optional, cast
 from mysql.connector.errors import IntegrityError
 from app.models.clothing import Clothing, ClothingCategory, ClothingSeason, ClothingTags
 from app.utils.logging import get_logger
@@ -17,25 +17,19 @@ import os
 logger = get_logger()
 
 class ClothingManager:
-    def _delete_unused_image(self, filename: str) -> None:
+    def _delete_unused_image(self, image_id: str) -> None:
         try:
-            with Database.getConnection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT * FROM clothing WHERE image_id = %s;", (filename,))
-                if cursor.fetchone() is not None:
-                    return
-            
-            os.remove(f"app/static/outfit_collages/{filename}.webp")
+            image_path = f"app/static/outfit_collages/{image_id}.webp"
+            os.remove(image_path)
+            logger.debug(f"Successfully deleted image: {image_id}")
         except FileNotFoundError:
-            pass
+            logger.debug(f"Image file not found (already deleted): {image_id}")
         except PermissionError:
-            logger.error(f"Permission denied while deleting an image: {filename}")
-            logger.error(traceback.format_exc())
-            pass
+            logger.error(f"Permission denied while deleting image: {image_id}", extra={"image_id": image_id})
         except Exception as e:
-            logger.error(f"An unexpected error occured while deleting an image: {e}")
-            logger.error(traceback.format_exc())
-            raise e
+            logger.error(
+            f"Unexpected error while deleting image {image_id}: {e}", exc_info=True, extra={"image_id": image_id})
+            raise
         
     def sync_clothes(self, user_id: str, updated_since: datetime) -> tuple[list[Clothing], list[str]]:
         updated_clothes: list[Clothing] = []
@@ -364,32 +358,41 @@ class ClothingManager:
         """
         clothing = self.get_clothing_by_id(user_id, clothing_id)
         return clothing.image_id
-        
     
-    def delete_clothing_by_id(self, user_id: str, clothing_id: str) -> None:
-        if not isinstance(clothing_id, str) or not clothing_id.strip():
-            raise ClothingIDMissingError("The clothing ID is missing.")
-        
-        try:    
-            with Database.getConnection() as conn:
-                cursor = conn.cursor()
+    def soft_delete_clothing_by_id(self, user_id: str, clothing_id: str) -> None:
+        with Database.getConnection() as conn:
+            cursor = conn.cursor()
+            
+            try:
                 cursor.execute("SELECT image_id FROM clothing WHERE clothing_id = %s AND user_id = %s AND deleted_at IS NULL;", (clothing_id, user_id,))
-                image_id = cursor.fetchone()
+                result = cursor.fetchone()
                 
-                if image_id is None:
-                    raise ClothingNotFoundError("The provided clothing ID does not match any clothing in the database.")
+                if result is None:
+                    raise ClothingNotFoundError
                 
-                cursor.execute("DELETE FROM clothing_tags WHERE clothing_id = %s;", (clothing_id,))
-                cursor.execute("DELETE FROM clothing_seasons WHERE clothing_id = %s;", (clothing_id,))
-                cursor.execute("DELETE FROM clothing WHERE clothing_id = %s AND user_id = %s;", (clothing_id, user_id,))
+                image_id, = result
+                
+                cursor.execute("SELECT outfit_id, COUNT(*) as item_count FROM outfit_clothing WHERE outfit_id IN ( SELECT outfit_id FROM outfit_clothing WHERE clothing_id = %s) GROUP BY outfit_id", (clothing_id, ))
+                affected_outfits = cursor.fetchall()
+                
+                cursor.execute("UPDATE clothing SET deleted_at = NOW() WHERE clothing_id = %s AND user_id = %s AND deleted_at IS NULL;", (clothing_id, user_id, ))
+                
+                cursor.execute("DELETE FROM outfit_clothing WHERE clothing_id = %s;", (clothing_id, ))
+                
+                for outfit_id, item_count in affected_outfits:
+                    if cast(int, item_count) <= 2:
+                        cursor.execute("UPDATE outfits SET deleted_at = NOW() WHERE outfit_id = %s", (cast(str, outfit_id), ))
+                        
                 conn.commit()
                 
-            self._delete_unused_image(image_id[0])
-        except ClothingNotFoundError as e:
-            raise e
-        except Exception as e:
-            logger.error(f"An unexpected error occurred while deleting clothing by ID: {e}")
-            logger.error(traceback.format_exc())
-            raise e
+                self._delete_unused_image(cast(str, image_id))
+            except ClothingNotFoundError:
+                raise
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"Unexpected error while soft deleting clothing {clothing_id}: {e}")
+                raise
+            finally:
+                cursor.close()
             
 clothing_manager = ClothingManager()
