@@ -221,8 +221,22 @@ class ImageManager:
         
         canvas.paste(image, (paste_x, paste_y), image)
     
-    def delete_outfit_preview(self, outfit_id: str):
-        os.remove(f"app/static/outfit_collages/{outfit_id}.webp")
+    def delete_outfit_preview(self, outfit_id: str) -> None:
+        """
+        :param outfit_id: Outfit ID whose preview should be deleted
+        """
+        try:
+            image_path = f"app/static/outfit_collages/{outfit_id}.webp"
+            os.remove(image_path)
+            logger.debug(f"Successfully deleted preview from: {outfit_id}")
+        except FileNotFoundError:
+            logger.debug(f"Preview file not found (already deleted): {outfit_id}")
+        except PermissionError:
+            logger.error(f"Permission denied while deleting preview from outfit: {outfit_id}", extra={"outfit_id": outfit_id})
+        except Exception as e:
+            logger.error(
+            f"Unexpected error while deleting preview from outfit {outfit_id}: {e}", exc_info=True, extra={"outfit_id": outfit_id})
+            raise
         
     def delete_clothing_image(self, image_id: str) -> None:
         """
