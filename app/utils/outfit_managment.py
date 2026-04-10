@@ -235,7 +235,7 @@ class OutfitManager:
         try:
             with Database.getConnection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT is_public, is_favorite, name, created_at, description, updated_at FROM outfits WHERE outfit_id = %s AND user_id = %s", (outfit_id, user_id,))
+                cursor.execute("SELECT is_public, is_favorite, name, created_at, description, updated_at FROM outfits WHERE outfit_id = %s AND user_id = %s AND deleted_at IS NULL;", (outfit_id, user_id,))
                 outfit = cursor.fetchone()
                 
                 if outfit is None:

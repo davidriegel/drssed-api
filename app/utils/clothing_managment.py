@@ -176,7 +176,7 @@ class ClothingManager:
         try:
             with Database.getConnection() as conn:
                 cursor = conn.cursor(dictionary=True)
-                cursor.execute("SELECT clothing_id, is_public, name, category, color, created_at, image_id, user_id, description FROM clothing WHERE clothing_id = %s AND user_id = %s;", (clothing_id, user_id,))
+                cursor.execute("SELECT clothing_id, is_public, name, category, color, created_at, image_id, user_id, description FROM clothing WHERE clothing_id = %s AND user_id = %s AND deleted_at IS NULL;", (clothing_id, user_id,))
                 clothing = cursor.fetchone()
                 
                 if clothing is None:
