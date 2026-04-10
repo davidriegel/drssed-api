@@ -488,6 +488,28 @@ class OutfitManager:
         if tags_to_add:
             values = [(outfit_id, tag) for tag in tags_to_add]
             cursor.executemany("INSERT INTO outfit_tags (outfit_id, tag) VALUES (%s, %s);", values)
+            
+    def soft_delete_outfit_by_id(self, user_id: str, outfit_id: str) -> None:
+        with Database.getConnection() as conn:
+            cursor = conn.cursor()
+            
+            try:
+                cursor.execute("UPDATE outfits SET deleted_at = NOW() WHERE outfit_id = %s AND user_id = %s AND deleted_at IS NULL;", (outfit_id, user_id, ))
+                
+                if cursor.rowcount == 0:
+                    raise OutfitNotFoundError
+                        
+                conn.commit()
+                
+                image_manager.delete_outfit_preview(outfit_id)
+            except OutfitNotFoundError:
+                raise
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"Unexpected error while soft deleting outfit {outfit_id}: {e}")
+                raise
+            finally:
+                cursor.close()
 
     def delete_outfit_by_id(self, user_id: str, outfit_id: Optional[str]) -> None:
         if not isinstance(outfit_id, str) or not outfit_id.strip():
