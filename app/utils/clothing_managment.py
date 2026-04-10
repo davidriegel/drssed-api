@@ -223,7 +223,7 @@ class ClothingManager:
         statement = f"""
             SELECT clothing_id, is_public, name, category, color, created_at, user_id, image_id, description
             FROM clothing
-            WHERE {where_clause}
+            WHERE {where_clause} AND deleted_at IS NULL
             ORDER BY created_at DESC
             LIMIT %s
             OFFSET %s;
@@ -261,7 +261,7 @@ class ClothingManager:
         try:
             with Database.getConnection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT clothing_id, name, created_at, user_id, description, category, color, image_id  FROM clothing WHERE clothing_id = %s AND user_id = %s;", (clothing_id, user_id))
+                cursor.execute("SELECT clothing_id, name, created_at, user_id, description, category, color, image_id  FROM clothing WHERE clothing_id = %s AND user_id = %s AND deleted_at IS NULL;", (clothing_id, user_id))
                 result = cursor.fetchone()
 
                 if result is None:
@@ -373,7 +373,7 @@ class ClothingManager:
         try:    
             with Database.getConnection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT image_id FROM clothing WHERE clothing_id = %s AND user_id = %s;", (clothing_id, user_id,))
+                cursor.execute("SELECT image_id FROM clothing WHERE clothing_id = %s AND user_id = %s AND deleted_at IS NULL;", (clothing_id, user_id,))
                 image_id = cursor.fetchone()
                 
                 if image_id is None:

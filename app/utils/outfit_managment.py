@@ -160,7 +160,7 @@ class OutfitManager:
             with Database.getConnection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "SELECT 1 FROM clothing WHERE clothing_id = %s AND user_id = %s;",
+                    "SELECT 1 FROM clothing WHERE clothing_id = %s AND user_id = %s AND deleted_at IS NULL;",
                     (cid, user_id)
                 )
                 if cursor.fetchone() is None:
@@ -290,7 +290,7 @@ class OutfitManager:
         statement = f"""
             SELECT outfit_id, is_public, is_favorite, name, user_id, image_id, created_at
             FROM outfits
-            WHERE {where_clause}
+            WHERE {where_clause} AND deleted_at IS NULL
             ORDER BY created_at DESC
             LIMIT %s
             OFFSET %s;
@@ -300,7 +300,7 @@ class OutfitManager:
             with Database.getConnection() as conn:
                 cursor = conn.cursor(dictionary=True)
                 
-                cursor.execute("SELECT COUNT(*) as total FROM outfits WHERE " + where_clause, tuple(params))
+                cursor.execute("SELECT COUNT(*) as total FROM outfits WHERE " + where_clause + " AND deleted_at IS NULL", tuple(params))
                 total_result = cursor.fetchone()
                 
                 total_result = helper.ensure_dict(total_result)
@@ -350,7 +350,7 @@ class OutfitManager:
         try: 
             with Database.getConnection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT is_favorite, is_public, name FROM outfits WHERE outfit_id = %s AND user_id = %s;", (outfit_id, user_id))
+                cursor.execute("SELECT is_favorite, is_public, name FROM outfits WHERE outfit_id = %s AND user_id = %s AND deleted_at IS NULL;", (outfit_id, user_id))
                 result = cursor.fetchone()
                 
                 if result is None:
@@ -496,7 +496,7 @@ class OutfitManager:
         try:
             with Database.getConnection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT user_id FROM outfits WHERE outfit_id = %s AND user_id = %s;", (outfit_id, user_id))
+                cursor.execute("SELECT user_id FROM outfits WHERE outfit_id = %s AND user_id = %s AND deleted_at IS NULL;", (outfit_id, user_id))
                 result = cursor.fetchone()
 
                 if result is None:
