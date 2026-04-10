@@ -160,7 +160,7 @@ class OutfitManager:
             with Database.getConnection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "SELECT 1 FROM clothing WHERE clothing_id = %s AND user_id = %s;",
+                    "SELECT 1 FROM clothing WHERE clothing_id = %s AND user_id = %s AND deleted_at IS NULL;",
                     (cid, user_id)
                 )
                 if cursor.fetchone() is None:
@@ -235,7 +235,7 @@ class OutfitManager:
         try:
             with Database.getConnection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT is_public, is_favorite, name, created_at, description, updated_at FROM outfits WHERE outfit_id = %s AND user_id = %s", (outfit_id, user_id,))
+                cursor.execute("SELECT is_public, is_favorite, name, created_at, description, updated_at FROM outfits WHERE outfit_id = %s AND user_id = %s AND deleted_at IS NULL;", (outfit_id, user_id,))
                 outfit = cursor.fetchone()
                 
                 if outfit is None:
@@ -290,7 +290,7 @@ class OutfitManager:
         statement = f"""
             SELECT outfit_id, is_public, is_favorite, name, user_id, created_at
             FROM outfits
-            WHERE {where_clause}
+            WHERE {where_clause} AND deleted_at IS NULL
             ORDER BY created_at DESC
             LIMIT %s
             OFFSET %s;
@@ -300,7 +300,7 @@ class OutfitManager:
             with Database.getConnection() as conn:
                 cursor = conn.cursor(dictionary=True)
                 
-                cursor.execute("SELECT COUNT(*) as total FROM outfits WHERE " + where_clause, tuple(params))
+                cursor.execute("SELECT COUNT(*) as total FROM outfits WHERE " + where_clause + " AND deleted_at IS NULL", tuple(params))
                 total_result = cursor.fetchone()
                 
                 total_result = helper.ensure_dict(total_result)
@@ -350,7 +350,7 @@ class OutfitManager:
         try: 
             with Database.getConnection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT is_favorite, is_public, name FROM outfits WHERE outfit_id = %s AND user_id = %s;", (outfit_id, user_id))
+                cursor.execute("SELECT is_favorite, is_public, name FROM outfits WHERE outfit_id = %s AND user_id = %s AND deleted_at IS NULL;", (outfit_id, user_id))
                 result = cursor.fetchone()
                 
                 if result is None:
@@ -485,32 +485,27 @@ class OutfitManager:
         if tags_to_add:
             values = [(outfit_id, tag) for tag in tags_to_add]
             cursor.executemany("INSERT INTO outfit_tags (outfit_id, tag) VALUES (%s, %s);", values)
-
-    def delete_outfit_by_id(self, user_id: str, outfit_id: Optional[str]) -> None:
-        if not isinstance(outfit_id, str) or not outfit_id.strip():
-            raise OutfitIDMissingError("The provided outfit ID is missing or invalid.")
-
-        try:
-            with Database.getConnection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT user_id FROM outfits WHERE outfit_id = %s AND user_id = %s;", (outfit_id, user_id))
-                result = cursor.fetchone()
-
-                if result is None:
-                    raise OutfitNotFoundError("The provided ID does not match any outfit in the database for the current user.")
-
-                cursor.execute("DELETE FROM outfit_seasons WHERE outfit_id = %s;", (outfit_id,))
-                cursor.execute("DELETE FROM outfit_tags WHERE outfit_id = %s;", (outfit_id,))
-                cursor.execute("DELETE FROM outfit_clothing WHERE outfit_id = %s;", (outfit_id,))
-                cursor.execute("DELETE FROM outfits WHERE outfit_id = %s;", (outfit_id,))
+            
+    def soft_delete_outfit_by_id(self, user_id: str, outfit_id: str) -> None:
+        with Database.getConnection() as conn:
+            cursor = conn.cursor()
+            
+            try:
+                cursor.execute("UPDATE outfits SET deleted_at = NOW() WHERE outfit_id = %s AND user_id = %s AND deleted_at IS NULL;", (outfit_id, user_id, ))
+                
+                if cursor.rowcount == 0:
+                    raise OutfitNotFoundError
+                        
                 conn.commit()
-        except OutfitNotFoundError as e:
-            raise e
-        except Exception as e:
-            logger.error(f"An unexpected error occurred while deleting outfit with ID {outfit_id}: {e}")
-            logger.error(traceback.format_exc())
-            raise e
-        return None
-    
+                
+                image_manager.delete_outfit_preview(outfit_id)
+            except OutfitNotFoundError:
+                raise
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"Unexpected error while soft deleting outfit {outfit_id}: {e}")
+                raise
+            finally:
+                cursor.close()
     
 outfit_manager = OutfitManager()

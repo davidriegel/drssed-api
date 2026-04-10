@@ -17,7 +17,7 @@ def get_outfit(outfit_id: str):
 @limiter.limit('5 per minute')
 @authorize_request
 def delete_outfit(outfit_id: str):
-    outfit_manager.delete_outfit_by_id(g.user_id, outfit_id)
+    outfit_manager.soft_delete_outfit_by_id(g.user_id, outfit_id)
 
     return "", 204
 

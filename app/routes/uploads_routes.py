@@ -49,7 +49,7 @@ def getTempImage(filename):
         return send_from_directory('app/static/temp', f'{filename}')
     except Exception as e:
         logger.error(f"An unexpected error occurred: {e}")
-        return jsonify({"error": f"An unexpected error occurred: {e}"}), 500
+        return jsonify({"error": "File not found."}), 500
 
 @uploads.get('/outfit_images/<filename>')
 @limiter.limit("10 per minute")

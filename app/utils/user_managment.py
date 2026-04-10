@@ -141,7 +141,7 @@ class UserManager:
                 cursor.execute("UPDATE users SET username = %s WHERE user_id = %s;", (username, user_id,))
                 conn.commit()
         except IntegrityError as e:
-            if e.msg and"username" in e.msg:
+            if e.msg and "username" in e.msg:
                 raise UsernameAlreadyInUseError("The provided username is already in use.")
             raise Exception(e.msg)
         except Exception as e:
