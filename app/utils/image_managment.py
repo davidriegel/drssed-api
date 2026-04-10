@@ -223,5 +223,22 @@ class ImageManager:
     
     def delete_outfit_preview(self, outfit_id: str):
         os.remove(f"app/static/outfit_collages/{outfit_id}.webp")
+        
+    def delete_clothing_image(self, image_id: str) -> None:
+        """
+        :param image_id: Image ID of clothing image to be deleted 
+        """
+        try:
+            image_path = f"app/static/outfit_collages/{image_id}.webp"
+            os.remove(image_path)
+            logger.debug(f"Successfully deleted image: {image_id}")
+        except FileNotFoundError:
+            logger.debug(f"Image file not found (already deleted): {image_id}")
+        except PermissionError:
+            logger.error(f"Permission denied while deleting image: {image_id}", extra={"image_id": image_id})
+        except Exception as e:
+            logger.error(
+            f"Unexpected error while deleting image {image_id}: {e}", exc_info=True, extra={"image_id": image_id})
+            raise
     
 image_manager = ImageManager()

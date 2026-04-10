@@ -17,19 +17,6 @@ import os
 logger = get_logger()
 
 class ClothingManager:
-    def _delete_unused_image(self, image_id: str) -> None:
-        try:
-            image_path = f"app/static/outfit_collages/{image_id}.webp"
-            os.remove(image_path)
-            logger.debug(f"Successfully deleted image: {image_id}")
-        except FileNotFoundError:
-            logger.debug(f"Image file not found (already deleted): {image_id}")
-        except PermissionError:
-            logger.error(f"Permission denied while deleting image: {image_id}", extra={"image_id": image_id})
-        except Exception as e:
-            logger.error(
-            f"Unexpected error while deleting image {image_id}: {e}", exc_info=True, extra={"image_id": image_id})
-            raise
         
     def sync_clothes(self, user_id: str, updated_since: datetime) -> tuple[list[Clothing], list[str]]:
         updated_clothes: list[Clothing] = []
@@ -385,7 +372,7 @@ class ClothingManager:
                         
                 conn.commit()
                 
-                self._delete_unused_image(cast(str, image_id))
+                image_manager.delete_clothing_image(cast(str, image_id))
             except ClothingNotFoundError:
                 raise
             except Exception as e:
