@@ -1,12 +1,10 @@
 __all__ = ["authentication_manager"]
 
-import random
-import base64
+import secrets
 import uuid
 import jwt
 from os import getenv
 from typing import Optional
-from string import ascii_letters, digits
 import traceback
 from datetime import datetime, timedelta
 from flask import request, jsonify, g
@@ -245,9 +243,8 @@ class AuthenticationManager:
             raise AuthAccessTokenInvalidError("The provided access token is invalid.")
 
     def _generate_refresh_token(self) -> str:
-        randRefreshToken = "".join(random.choices(ascii_letters + digits, k=REFRESH_TOKEN_LENGTH))
-        randRefreshTokenb64 = base64.b64encode(randRefreshToken.encode()).decode()
-        return f"{randRefreshTokenb64}"
+        randRefreshToken = "".join(secrets.token_urlsafe(REFRESH_TOKEN_LENGTH))
+        return f"{randRefreshToken}"
 
     def _generate_access_token(self, user_id: str, is_guest: bool) -> str:
         payload = {
