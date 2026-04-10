@@ -510,32 +510,5 @@ class OutfitManager:
                 raise
             finally:
                 cursor.close()
-
-    def delete_outfit_by_id(self, user_id: str, outfit_id: Optional[str]) -> None:
-        if not isinstance(outfit_id, str) or not outfit_id.strip():
-            raise OutfitIDMissingError("The provided outfit ID is missing or invalid.")
-
-        try:
-            with Database.getConnection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT user_id FROM outfits WHERE outfit_id = %s AND user_id = %s AND deleted_at IS NULL;", (outfit_id, user_id))
-                result = cursor.fetchone()
-
-                if result is None:
-                    raise OutfitNotFoundError("The provided ID does not match any outfit in the database for the current user.")
-
-                cursor.execute("DELETE FROM outfit_seasons WHERE outfit_id = %s;", (outfit_id,))
-                cursor.execute("DELETE FROM outfit_tags WHERE outfit_id = %s;", (outfit_id,))
-                cursor.execute("DELETE FROM outfit_clothing WHERE outfit_id = %s;", (outfit_id,))
-                cursor.execute("DELETE FROM outfits WHERE outfit_id = %s;", (outfit_id,))
-                conn.commit()
-        except OutfitNotFoundError as e:
-            raise e
-        except Exception as e:
-            logger.error(f"An unexpected error occurred while deleting outfit with ID {outfit_id}: {e}")
-            logger.error(traceback.format_exc())
-            raise e
-        return None
-    
     
 outfit_manager = OutfitManager()
