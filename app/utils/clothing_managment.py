@@ -255,7 +255,7 @@ class ClothingManager:
                     if len(name) > 50:
                         raise ClothingNameTooLongError("The provided name is too long, it has to be at most 50 characters long.")
                     
-                    if name != result[2]:
+                    if name != result[1]:
                         fields.append("name = %s")
                         values.append(name)
                         
@@ -271,7 +271,7 @@ class ClothingManager:
                     if not os.path.exists(os.path.join("app", "static", "temp", image_id + ".webp")):
                         raise ClothingImageMissingError("The provided image file does not exist.")
                     
-                    self._delete_unused_image(image_id)
+                    image_manager.delete_clothing_image(image_id=image_id)
                     fields.append("image_id = %s")
                     values.append(image_id)
                     image_manager.move_preview_image_to_permanent(image_id)
