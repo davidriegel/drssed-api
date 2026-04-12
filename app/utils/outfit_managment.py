@@ -241,7 +241,7 @@ class OutfitManager:
                 if outfit is None:
                         raise OutfitNotFoundError("The provided ID does not match any outfit in the database.")
                 
-                outift_is_public, outfit_is_favorite, outfit_name, outfit_created_at, outfit_description, outfit_updated_at = outfit
+                outfit_is_public, outfit_is_favorite, outfit_name, outfit_created_at, outfit_description, outfit_updated_at = outfit
                     
                 cursor.execute("SELECT season FROM outfit_seasons WHERE outfit_id = %s;", (outfit_id,))
                 seasons = [OutfitSeason[cast(str, season)] for (season,) in cursor.fetchall()]
@@ -253,7 +253,7 @@ class OutfitManager:
                 rows = cast(list[tuple], cursor.fetchall())
                 clothing_canvas = [helper._parse_canvas_row(row) for row in rows]
                 
-                outfit = Outfit(outfit_id, bool(outift_is_public), bool(outfit_is_favorite), cast(str, outfit_name), cast(datetime, outfit_created_at), cast(datetime, outfit_updated_at), user_id, clothing_canvas, seasons, tags, cast(str, outfit_description))
+                outfit = Outfit(outfit_id, bool(outfit_is_public), bool(outfit_is_favorite), cast(str, outfit_name), cast(datetime, outfit_created_at), cast(datetime, outfit_updated_at), user_id, clothing_canvas, seasons, tags, cast(str, outfit_description))
         except OutfitNotFoundError as e:
             raise e
         except OutfitPermissionError as e:
@@ -443,8 +443,6 @@ class OutfitManager:
             })
             
             clothing_canvas.append(CanvasPlacement(clothing_id=clothing_id, x=item["x"], y=item["y"], z=item["z"], scale=item["scale"], rotation=item["rotation"]))
-        
-        threading.Thread(target=image_manager.generate_outfit_preview, args=(outfit_id, validated_items)).start()
         
         cursor.execute("DELETE FROM outfit_clothing WHERE outfit_id = %s;", (outfit_id, ))
         
