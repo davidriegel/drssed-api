@@ -265,12 +265,12 @@ class OutfitManager:
 
         return outfit
 
-    def get_list_of_outfits_by_user_id(self, user_id: Optional[str], limit: int = 1000, offset: int = 0, include_private: bool = False) -> tuple[list[Outfit], int]:
+    def get_list_of_outfits_by_user_id(self, user_id: Optional[str], limit: int = 50, offset: int = 0, include_private: bool = False) -> tuple[list[Outfit], int]:
         if not isinstance(user_id, str) or not user_id.strip():
             raise OutfitIDMissingError("The provided user ID is missing or invalid.")
         
-        if not isinstance(limit, int) or limit <= 0 or limit > 1000:
-            raise OutfitLimitInvalidError("The limit must be a positive integer and cannot exceed 1000.")
+        if not isinstance(limit, int) or limit <= 0 or limit > 100:
+            raise OutfitLimitInvalidError("The limit must be a positive integer and cannot exceed 100.")
 
         if not isinstance(offset, int) or offset < 0:
             raise OutfitOffsetInvalidError("The offset must be a positive integer.")
