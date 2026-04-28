@@ -80,14 +80,19 @@ class UserManager:
             with Database.getConnection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("SELECT password FROM users WHERE user_id = %s;", (user_id, ))
-                db_password = cursor.fetchone()
+                result = cursor.fetchone()
+                
+                if result is None:
+                    raise UserNotFoundError
+                
+                hashed_password, = result
             
-                PasswordHasher().verify(db_password, password)
+                PasswordHasher().verify(str(hashed_password), password)
                 
                 cursor.execute("DELETE FROM users WHERE user_id = %s;", (user_id, ))
                 conn.commit()
         except VerifyMismatchError:
-            raise AuthCredentialsWrongError("The provided sign in credentials are wrong.")
+            raise AuthCredentialsWrongError
         except Exception as e:
             logger.error(f"An unexpected error occurred while trying to delete a user: {e}")
             logger.error(traceback.format_exc())

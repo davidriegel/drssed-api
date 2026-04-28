@@ -206,7 +206,7 @@ class OutfitManager:
                     INSERT INTO outfits(outfit_id, is_public, is_favorite, name, user_id, description)
                     VALUES (%s, %s, %s, %s, %s, %s);
                 """, (
-                    outfit_id, is_public, is_favorite, name, user_id, description, 
+                    outfit_id, is_public, is_favorite, name, user_id, description,
                 ))
 
                 if outfit.seasons:
@@ -241,7 +241,7 @@ class OutfitManager:
                 if outfit is None:
                         raise OutfitNotFoundError("The provided ID does not match any outfit in the database.")
                 
-                outift_is_public, outfit_is_favorite, outfit_name, outfit_created_at, outfit_description, outfit_updated_at = outfit
+                outfit_is_public, outfit_is_favorite, outfit_name, outfit_created_at, outfit_description, outfit_updated_at = outfit
                     
                 cursor.execute("SELECT season FROM outfit_seasons WHERE outfit_id = %s;", (outfit_id,))
                 seasons = [OutfitSeason[cast(str, season)] for (season,) in cursor.fetchall()]
@@ -253,7 +253,7 @@ class OutfitManager:
                 rows = cast(list[tuple], cursor.fetchall())
                 clothing_canvas = [helper._parse_canvas_row(row) for row in rows]
                 
-                outfit = Outfit(outfit_id, bool(outift_is_public), bool(outfit_is_favorite), cast(str, outfit_name), cast(datetime, outfit_created_at), cast(datetime, outfit_updated_at), user_id, clothing_canvas, seasons, tags, cast(str, outfit_description))
+                outfit = Outfit(outfit_id, bool(outfit_is_public), bool(outfit_is_favorite), cast(str, outfit_name), cast(datetime, outfit_created_at), cast(datetime, outfit_updated_at), user_id, clothing_canvas, seasons, tags, cast(str, outfit_description))
         except OutfitNotFoundError as e:
             raise e
         except OutfitPermissionError as e:
@@ -265,12 +265,12 @@ class OutfitManager:
 
         return outfit
 
-    def get_list_of_outfits_by_user_id(self, user_id: Optional[str], limit: int = 1000, offset: int = 0, include_private: bool = False) -> tuple[list[Outfit], int]:
+    def get_list_of_outfits_by_user_id(self, user_id: Optional[str], limit: int = 50, offset: int = 0, include_private: bool = False) -> tuple[list[Outfit], int]:
         if not isinstance(user_id, str) or not user_id.strip():
             raise OutfitIDMissingError("The provided user ID is missing or invalid.")
         
-        if not isinstance(limit, int) or limit <= 0 or limit > 1000:
-            raise OutfitLimitInvalidError("The limit must be a positive integer and cannot exceed 1000.")
+        if not isinstance(limit, int) or limit <= 0 or limit > 100:
+            raise OutfitLimitInvalidError("The limit must be a positive integer and cannot exceed 100.")
 
         if not isinstance(offset, int) or offset < 0:
             raise OutfitOffsetInvalidError("The offset must be a positive integer.")
@@ -440,8 +440,6 @@ class OutfitManager:
             })
             
             clothing_canvas.append(CanvasPlacement(clothing_id=clothing_id, x=item["x"], y=item["y"], z=item["z"], scale=item["scale"], rotation=item["rotation"]))
-        
-        threading.Thread(target=image_manager.generate_outfit_preview, args=(outfit_id, validated_items)).start()
         
         cursor.execute("DELETE FROM outfit_clothing WHERE outfit_id = %s;", (outfit_id, ))
         

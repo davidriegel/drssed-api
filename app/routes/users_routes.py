@@ -68,7 +68,7 @@ def sync_my_outfits():
 @limiter.limit('5 per minute')
 @authorize_request
 def get_outfit_list(user_id: str):
-    limit = request.args.get("limit", 1000, type=int)
+    limit = request.args.get("limit", 50, type=int)
     offset = request.args.get("offset", 0, type=int)
 
     outfit_list, total = outfit_manager.get_list_of_outfits_by_user_id(user_id, limit, offset)
@@ -80,7 +80,7 @@ def get_outfit_list(user_id: str):
 @limiter.limit('5 per minute')
 @authorize_request
 def get_outfit_list_private():
-    limit = request.args.get("limit", 1000, type=int)
+    limit = request.args.get("limit", 50, type=int)
     offset = request.args.get("offset", 0, type=int)
 
     outfit_list, total = outfit_manager.get_list_of_outfits_by_user_id(g.user_id, limit, offset, include_private=True)
@@ -113,7 +113,7 @@ def create_outfit():
 @limiter.limit('5 per minute')
 @authorize_request
 def get_clothing_list(user_id: str):
-    limit = request.args.get("limit", 1000, type=int)
+    limit = request.args.get("limit", 50, type=int)
     offset = request.args.get("offset", 0, type=int)
     category = request.args.get("category", None, type=str)
 
@@ -125,7 +125,7 @@ def get_clothing_list(user_id: str):
 @limiter.limit('5 per minute')
 @authorize_request
 def get_clothing_list_private():
-    limit = request.args.get("limit", 1000, type=int)
+    limit = request.args.get("limit", 50, type=int)
     offset = request.args.get("offset", 0, type=int)
     category = request.args.get("category", None, type=str)
     
