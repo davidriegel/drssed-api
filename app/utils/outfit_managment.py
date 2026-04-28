@@ -204,9 +204,9 @@ class OutfitManager:
                 cursor = conn.cursor()
                 cursor.execute("""
                     INSERT INTO outfits(outfit_id, is_public, is_favorite, name, user_id, description)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s);
+                    VALUES (%s, %s, %s, %s, %s, %s);
                 """, (
-                    outfit_id, is_public, is_favorite, name, user_id, description, 
+                    outfit_id, is_public, is_favorite, name, user_id, description,
                 ))
 
                 if outfit.seasons:
