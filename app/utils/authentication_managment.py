@@ -16,6 +16,10 @@ from app.utils.exceptions import AuthValidationError, AuthTokenExpiredError, Aut
 from app.utils.logging import get_logger
 
 SECRET_TOKEN_KEY = getenv("SECRET_TOKEN_KEY")
+
+if not SECRET_TOKEN_KEY or len(SECRET_TOKEN_KEY) < 32:
+    raise RuntimeError("⚠️ SECRET_TOKEN_KEY must be set and at least 32 characters long")
+
 ACCESS_TOKEN_EXPIRY_HOURS = 1
 REFRESH_TOKEN_EXPIRY_DAYS = 90
 REFRESH_TOKEN_LENGTH = 16
