@@ -243,7 +243,7 @@ class ImageManager:
         :param image_id: Image ID of clothing image to be deleted 
         """
         try:
-            image_path = f"app/static/outfit_collages/{image_id}.webp"
+            image_path = f"app/static/clothing_images/{image_id}.webp"
             os.remove(image_path)
             logger.debug(f"Successfully deleted image: {image_id}")
         except FileNotFoundError:
