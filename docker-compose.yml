@@ -1,7 +1,7 @@
 services:
   mysql:
     image: mysql:8.0
-    container_name: drssed-mysql
+    container_name: mysql
     command: --event-scheduler=ON
     environment:
       MYSQL_ROOT_PASSWORD: ${DATABASE_ROOT_PASSWORD}
@@ -22,7 +22,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: drssed-redis
+    container_name: redis
     volumes:
       - redis_data:/data
     restart: unless-stopped
@@ -34,7 +34,7 @@ services:
 
   api:
     build: .
-    container_name: drssed-api
+    container_name: api
     env_file: .env
     volumes:
       - ./app/static:/app/app/static
