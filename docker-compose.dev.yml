@@ -1,0 +1,60 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mysql-dev
+    command: --event-scheduler=ON
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DATABASE_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DATABASE_NAME}
+      MYSQL_USER: ${DATABASE_USERNAME}
+      MYSQL_PASSWORD: ${DATABASE_PASSWORD}
+    volumes:
+      - mysql_data_dev:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "3306:3306"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis-dev
+    volumes:
+      - redis_data_dev:/data
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  api:
+    build: .
+    container_name: api-dev
+    env_file: .env
+    volumes:
+      - ./:/app
+      - /app/__pycache__
+      - /app/.pytest_cache
+      - ./app/static:/app/app/static
+      - ./logs:/app/logs
+    depends_on:
+      - mysql
+      - redis
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    command: gunicorn -c gunicorn.conf.py --reload main:api
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  mysql_data_dev:
+  redis_data_dev:
