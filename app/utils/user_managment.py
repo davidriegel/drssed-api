@@ -4,7 +4,7 @@ import traceback
 import os
 from typing import Optional
 from app.utils.database import Database
-from app.utils.exceptions import PasswordMissingError, SignInNameMissingError, EmailInvalidError, PasswordTooShortError, UsernameTooLongError, EmailMissingError, UsernameTooShortError, UsernameMissingError, ProfilePictureInvalidError, EmailAlreadyInUseError, UsernameAlreadyInUseError, AuthCredentialsWrongError, UserNotFoundError
+from app.utils.exceptions import ValidationError, NotFoundError, ConflictError, UsernameTooShortError, UsernameMissingError, UsernameAlreadyInUseError, AuthCredentialsWrongError, UserNotFoundError
 from app.utils.helpers import helper
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
@@ -16,55 +16,56 @@ from app.utils.logging import get_logger
 logger = get_logger()
 
 class UserManager:
-    def upgrade_guest_account(self, user_id: str, email: Optional[str], username: Optional[str], password: Optional[str], profile_picture: Optional[str]) -> User:
-        if not (isinstance(email, str) and email.strip()) and not (isinstance(username, str) and username.strip()):
-            raise SignInNameMissingError("Either an email or username is required.")
-            
-        if not isinstance(email, str):
-            raise EmailMissingError("Email is required.")
+    def upgrade_guest_account(self, user_id: str, password: str, profile_picture: str, email: Optional[str], username: Optional[str]) -> User:
+        if not isinstance(password, str) or not password.strip():
+            raise ValidationError("Password is required.")
         
-        if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
-            raise EmailInvalidError("The provided email is invalid.")
-            
-        if not isinstance(username, str):
-            raise UsernameMissingError("Username is required.")
-        
-        if len(username) < 3:
-            raise UsernameTooShortError("Username must be at least 3 characters long.")
-        
-        if len(username) > 20:
-            raise UsernameTooLongError("Username must be at most 20 characters long.")
-
-        if not isinstance(password, str):
-            raise PasswordMissingError("Password is required.")
-
         if len(password) < 8:
-            raise PasswordTooShortError("Password must be at least 8 characters long.")
-
-        if profile_picture is not None and profile_picture not in os.listdir("app/static/profile_pictures/default/"):
-            raise ProfilePictureInvalidError("Profile picture must be from the default options.")
+            raise ValidationError("Password must be at least 8 characters long.")
+        
+        allowed_pictures = [os.path.splitext(file)[0] for file in os.listdir("app/static/profile_pictures/default/")]
+        if profile_picture not in allowed_pictures:
+            raise ValidationError("Profile picture must be from the default options.")
+        
+        if email:
+            email = email.strip().lower()
+            
+            if not re.match(r"^[^@]+@[^@]+\.[^@]+$", email):
+                raise ValidationError("The provided email is invalid.")
+        else:
+            email = None
+                
+        if username:
+            username = username.strip().lower()
+            
+            if len(username) < 3:
+                raise ValidationError("Username must be at least 3 characters long.")
+            if len(username) > 20:
+                raise ValidationError("Username must be at most 20 characters long.")
+        else:
+            username = None
         
         hashed_password = PasswordHasher().hash(password)
         
         try:
             with Database.getConnection() as conn:
                 cursor = conn.cursor(dictionary=True)
-                cursor.execute("UPDATE users SET is_guest = %s, email = %s, username = %s, password = %s, profile_picture = %s WHERE user_id = %s;", (False, email.lower(), username.lower(), hashed_password, profile_picture, user_id))
+                cursor.execute("UPDATE users SET is_guest = FALSE, email = %s, username = %s, password = %s, profile_picture = %s WHERE user_id = %s AND is_guest = TRUE;", (email, username, hashed_password, profile_picture, user_id))
                 
-                cursor.execute("SELECT user_id, is_guest, username, email, created_at, updated_at, profile_picture FROM users WHERE user_id = %s;", (user_id, ))
+                if cursor.rowcount == 0:
+                    raise NotFoundError(f"No guest account found with user_id: {user_id}")
+                
+                cursor.execute("SELECT user_id, is_guest, username, email, created_at, updated_at, profile_picture FROM users WHERE user_id = %s;", (user_id,))
                 db_user = cursor.fetchone()
 
-                if not isinstance(db_user, dict):
-                    raise TypeError(f"Expected a dictionary, but got {type(db_user).__name__}")
-
-                user = User.from_dict(db_user)
+                user = User.from_dict(helper.ensure_dict(db_user))
                 
                 conn.commit()
         except IntegrityError as e:
             if e.msg and "email" in e.msg:
-                raise EmailAlreadyInUseError("The provided email is already in use.")
+                raise ConflictError("The provided email is already in use.")
             elif e.msg and "username" in e.msg:
-                raise UsernameAlreadyInUseError("The provided username is already in use.")
+                raise ConflictError("The provided username is already in use.")
             else:
                 logger.error(f"Unexpected IntegrityError: {e.msg}")
                 raise Exception(e.msg)
@@ -138,7 +139,7 @@ class UserManager:
             raise UsernameTooShortError("The provided username is too short.")
         
         if len(username) > 32:
-            raise UsernameTooLongError("The provided username is too long.")
+            raise ValidationError("The provided username is too long.")
             
         try:
             with Database.getConnection() as conn:

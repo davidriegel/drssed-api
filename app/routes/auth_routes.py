@@ -49,9 +49,9 @@ def upgrade_guest():
     password = data.get("password", None)
     profile_picture = data.get("profile_picture", None)
     
-    user = user_manager.upgrade_guest_account(g.user_id, email, username, password, profile_picture)
+    user = user_manager.upgrade_guest_account(g.user_id, password, profile_picture, email, username)
     
-    return jsonify(user.from_dict), 201
+    return jsonify(user.to_dict()), 201
     
 @auth.route("/login", methods=["POST"])
 @limiter.limit("5 per minute")
