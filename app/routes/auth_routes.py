@@ -11,10 +11,10 @@ auth = Blueprint("auth", __name__)
 @auth.route('/guest', methods=['POST'])
 @limiter.limit('5 per hour')
 def register_guest():
-    access_token, expires_in, refresh_token = authentication_manager.register_guest()
-    g.user_id = authentication_manager.get_user_id_from_token(access_token)
+    token = authentication_manager.register_guest()
+    g.user_id = authentication_manager.get_user_id_from_token(token.access_token)
 
-    return jsonify({"access_token": access_token, "expires_in": expires_in, "refresh_token": refresh_token}), 201
+    return jsonify(token.to_dict()), 201
 
 @auth.route('/refresh', methods=['POST'])
 @limiter.limit('5 per minute')
@@ -25,10 +25,10 @@ def refresh_access_token():
     if not refresh_token:
         raise ValidationError
 
-    access_token, expires_in, refresh_token = authentication_manager.refresh_access_token(refresh_token)
-    g.user_id = authentication_manager.get_user_id_from_token(access_token)
+    token = authentication_manager.refresh_access_token(refresh_token)
+    g.user_id = authentication_manager.get_user_id_from_token(token.access_token)
 
-    return jsonify({"access_token": access_token, "expires_in": expires_in, "refresh_token": refresh_token}), 200
+    return jsonify(token.to_dict()), 200
 
 @auth.route('/signout', methods=['POST'])
 @limiter.limit('2 per minute')
@@ -71,7 +71,7 @@ def login():
     if not password or (not email and not username):
         raise ValidationError
     
-    access_token, expires_in, refresh_token = authentication_manager.sign_in_user(email, username, password)
-    g.user_id = authentication_manager.get_user_id_from_token(access_token)
+    token = authentication_manager.sign_in_user(email, username, password)
+    g.user_id = authentication_manager.get_user_id_from_token(token.access_token)
     
-    return jsonify({"access_token": access_token, "expires_in": expires_in, "refresh_token": refresh_token})
+    return jsonify(token.to_dict())

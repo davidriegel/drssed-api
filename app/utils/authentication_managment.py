@@ -7,12 +7,11 @@ from os import getenv
 from typing import Optional
 import traceback
 from datetime import datetime, timedelta
-from flask import request, jsonify, g
-from functools import wraps
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from app.utils.database import Database
-from app.utils.exceptions import AuthValidationError, AuthTokenExpiredError, AuthAccessTokenInvalidError, AuthRefreshTokenInvalidError, AuthAccessTokenMissingError, AuthRefreshTokenMissingError, UserIDMissingError, AuthCredentialsWrongError, UnauthorizedError
+from app.models.token import Token
+from app.utils.exceptions import AuthValidationError, AuthTokenExpiredError, AuthAccessTokenInvalidError, AuthRefreshTokenInvalidError, AuthAccessTokenMissingError, AuthRefreshTokenMissingError, UserIDMissingError, UnauthorizedError
 from app.utils.logging import get_logger
 
 SECRET_TOKEN_KEY = getenv("SECRET_TOKEN_KEY")
@@ -27,12 +26,10 @@ REFRESH_TOKEN_LENGTH = 16
 logger = get_logger()
 
 class AuthenticationManager:
-    def refresh_access_token(self, refresh_token: str) -> tuple[str, int, str]:
+    def refresh_access_token(self, refresh_token: str) -> Token:
         """
         :params refresh_token str:
-        :returns access_token: Fresh access token for user
-        :returns expires_in: Expiry in seconds
-        :returns refresh_token: New refresh token for user if user is signed in otherwise send back same refresh token
+        :returns Token: A new access token, its expiry in seconds, and a new refresh token
         """
 
         try:
@@ -42,17 +39,24 @@ class AuthenticationManager:
                 result = cursor.fetchone()
 
                 if not result:
-                    raise AuthRefreshTokenInvalidError("The provided refresh token is invalid.")
+                    raise UnauthorizedError
                 
-                if isinstance(result[1], datetime):
-                    if result[1] < datetime.now():
-                        raise AuthTokenExpiredError("The provided refresh token is expired.")
-
-                user_id = result[0]
+                user_id, refresh_token_expiry = result
+                
+                if isinstance(refresh_token_expiry, datetime):
+                    if refresh_token_expiry < datetime.now():
+                        raise AuthTokenExpiredError
                 
                 cursor.execute("SELECT is_guest FROM users WHERE user_id = %s", (user_id, ))
-                is_guest = cursor.fetchone()[0]
-                    
+                result = cursor.fetchone()
+                
+                if not result:
+                    cursor.execute("DELETE FROM refresh_tokens WHERE user_id = %s", (user_id,))
+                    conn.commit()
+                    raise Exception("Database integrity error: refresh token exists for non-existent user")
+                
+                is_guest, = result
+
                 access_token = self._generate_access_token(user_id, is_guest=is_guest)
                 new_refresh_token = self._generate_refresh_token()
 
@@ -72,7 +76,7 @@ class AuthenticationManager:
                     
                 conn.commit()
 
-            return access_token, ACCESS_TOKEN_EXPIRY_HOURS * 60 * 60, new_refresh_token
+            return Token(access_token=access_token, expires_in=ACCESS_TOKEN_EXPIRY_HOURS * 60 * 60, refresh_token=new_refresh_token)
         except AuthValidationError as e:
             raise e
         except Exception as e:
@@ -102,23 +106,19 @@ class AuthenticationManager:
             logger.error(traceback.format_exc())
             raise e
         
-    def register_guest(self) -> tuple[str, int, str]:
+    def register_guest(self) -> Token:
         """
-        :returns access_token: Access token for user
-        :returns expires_in: Expiry in seconds
-        :returns refresh_token: Refresh token for user
+        :returns Token: A new access token, its expiry in seconds, and a new refresh token
         """
         try:
             user_id = self._add_user_to_database()
             
-            access_token, expires_in, refresh_token = self._generate_token_pair(user_id, is_guest=True)
-            
-            return access_token, expires_in, refresh_token
+            return self._generate_token_pair(user_id, is_guest=True)
         except Exception as e:
             logger.error(f"An unexpected error occurred while registering guest: {e}")
             raise
         
-    def sign_in_user(self, email: Optional[str], username: Optional[str], password: str) -> tuple[str, int, str]:
+    def sign_in_user(self, email: Optional[str], username: Optional[str], password: str) -> Token:
         try:
             with Database.getConnection() as conn:
                 cursor = conn.cursor()
@@ -160,7 +160,7 @@ class AuthenticationManager:
             logger.error(traceback.format_exc())
             raise e
         
-    def _generate_token_pair(self, user_id: Optional[str], is_guest: Optional[bool]) -> tuple[str, int, str]:
+    def _generate_token_pair(self, user_id: Optional[str], is_guest: Optional[bool]) -> Token:
         if not isinstance(user_id, str) or not user_id.strip():
             raise UserIDMissingError("The user_id is missing or invalid.")
         
@@ -189,13 +189,13 @@ class AuthenticationManager:
 
             access_token = self._generate_access_token(user_id, is_guest=is_guest)
 
-            return access_token, ACCESS_TOKEN_EXPIRY_HOURS * 60 * 60, refresh_token
+            return Token(access_token=access_token, expires_in=ACCESS_TOKEN_EXPIRY_HOURS * 60 * 60, refresh_token=refresh_token)
         except Exception as e:
             logger.error(f"An unexpected error occurred while generating a new token pair: {e}")
             logger.error(traceback.format_exc())
             raise
         
-    def _add_user_to_database(self, is_guest: bool = True, email: str = None, username: str = None, password: str = None, profilePicture: str = None) -> str:
+    def _add_user_to_database(self, is_guest: bool = True, email: Optional[str] = None, username: Optional[str] = None, password: Optional[str] = None, profilePicture: Optional[str] = None) -> str:
         user_id = str(uuid.uuid4())
 
         try:
