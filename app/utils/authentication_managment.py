@@ -133,6 +133,16 @@ class AuthenticationManager:
             raise UnauthorizedError
         
         return user_id
+    
+    def get_authorization_status_from_token(self, token: str) -> bool:
+        payload = self._get_payload_from_access_token(token)
+        
+        is_guest = payload.get('is_guest')
+        
+        if not isinstance(is_guest, bool):
+            raise UnauthorizedError
+        
+        return is_guest
         
     def _generate_token_pair(self, user_id: str, is_guest: bool) -> Token:
         with Database.getConnection() as conn:
