@@ -3,7 +3,7 @@ from app.utils.authentication_managment import authentication_manager
 from app.utils.middleware.authentication import authorize_request
 from app.utils.user_managment import user_manager
 from app.utils.limiter import limiter
-from app.utils.exceptions import ValidationError
+from app.utils.exceptions import ValidationError, ConflictError
 
 auth = Blueprint("auth", __name__)
 
@@ -47,6 +47,9 @@ def delete_refresh_token():
 @limiter.limit("5 per minute")
 @authorize_request
 def upgrade_guest():
+    if g.is_guest is False:
+        raise ConflictError
+    
     data: dict = request.get_json()
     
     email = data.get("email")
