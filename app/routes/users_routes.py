@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify, g
 from ..utils.user_managment import user_manager
 from app.utils.outfit_managment import outfit_manager
 from app.utils.clothing_managment import clothing_manager
-from ..utils.exceptions import UsernameTooShortError, UsernameTooLongError, UsernameAlreadyInUseError, UserNotFoundError, UnsupportedFileTypeError
+from ..utils.exceptions import ValidationError
 from ..utils.limiter import limiter
 from ..utils.helpers import helper
 from ..utils.middleware.authentication import authorize_request
@@ -138,7 +138,6 @@ def get_clothing_list_private():
 @limiter.limit('5 per minute')
 @authorize_request
 def create_clothing_piece():
-    token = request.headers["Authorization"]
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
@@ -155,4 +154,18 @@ def create_clothing_piece():
 
     return jsonify({"clothing": clothing.to_dict()}), 201
 
-# TODO: Create endpoint to delete account
+@users.route('/me', methods=['DELETE'])
+@limiter.limit('1 per minute')
+@authorize_request
+def delete_account():
+    data = request.get_json()
+    if not data:
+        raise ValidationError
+    
+    password = data.get("password")
+    if not password:
+        raise ValidationError
+
+    user_manager.delete_account_by_id(g.user_id, password)
+    
+    return jsonify({"message": "Account deleted successfully"}), 200
