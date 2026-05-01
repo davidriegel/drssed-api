@@ -5,7 +5,6 @@ import uuid
 import jwt
 from os import getenv
 from typing import Optional
-import traceback
 from datetime import datetime, timedelta
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
@@ -183,13 +182,6 @@ class AuthenticationManager:
             conn.commit()
             
         return user_id
-        
-    def verify_access_token(self, token: str) -> bool:
-        try:
-            jwt.decode(token, SECRET_TOKEN_KEY, algorithms=['HS256'])
-            return True
-        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
-            return False
         
     def _get_payload_from_access_token(self, token: str) -> dict:
         try:
