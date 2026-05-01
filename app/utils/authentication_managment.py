@@ -36,10 +36,13 @@ class AuthenticationManager:
             cursor.execute("SELECT user_id, refresh_token_expiry FROM refresh_tokens WHERE refresh_token = %s;", (refresh_token,))
             result = cursor.fetchone()
 
-            if not result:
+            if not result or not isinstance(result, tuple):
                 raise UnauthorizedError
             
             user_id, refresh_token_expiry = result
+            
+            if not isinstance(user_id, str):
+                raise ValueError("expected user_id to be a str")
             
             if isinstance(refresh_token_expiry, datetime):
                 if refresh_token_expiry < datetime.now():
@@ -48,12 +51,15 @@ class AuthenticationManager:
             cursor.execute("SELECT is_guest FROM users WHERE user_id = %s", (user_id, ))
             result = cursor.fetchone()
             
-            if not result:
+            if not result or not isinstance(result, tuple):
                 cursor.execute("DELETE FROM refresh_tokens WHERE user_id = %s", (user_id,))
                 conn.commit()
                 raise Exception("Database integrity error: refresh token exists for non-existent user")
             
             is_guest, = result
+            
+            if not isinstance(is_guest, bool):
+                raise ValueError("expected is_guest to be a bool")
 
             access_token = self._generate_access_token(user_id, is_guest=is_guest)
             new_refresh_token = self._generate_refresh_token()
@@ -136,7 +142,13 @@ class AuthenticationManager:
             
             if len(result) >= 5:
                 refresh_token_list = result[0]
-                cursor.execute("DELETE FROM refresh_tokens WHERE refresh_token = %s", (refresh_token_list[1], ))
+                
+                _, refresh_token, _ = refresh_token_list
+                
+                if not isinstance(refresh_token, str):
+                    raise ValueError("expected refresh_token to be a str")
+                
+                cursor.execute("DELETE FROM refresh_tokens WHERE refresh_token = %s", (refresh_token, ))
         
             refresh_token = self._generate_refresh_token()
             refreshTokenExpiry = (datetime.now() + timedelta(days=REFRESH_TOKEN_EXPIRY_DAYS)).strftime('%Y-%m-%d %H:%M:%S')
