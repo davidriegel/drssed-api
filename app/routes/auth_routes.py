@@ -20,10 +20,12 @@ def register_guest():
 @limiter.limit('5 per minute')
 def refresh_access_token():
     data = request.get_json()
+    
     refresh_token = data.get("refresh_token")
-    access_token = data.get("access_token")
+    if not refresh_token:
+        raise ValidationError
 
-    access_token, expires_in, refresh_token = authentication_manager.refresh_access_token(access_token, refresh_token)
+    access_token, expires_in, refresh_token = authentication_manager.refresh_access_token(refresh_token)
     g.user_id = authentication_manager.get_user_id_from_token(access_token)
 
     return jsonify({"access_token": access_token, "expires_in": expires_in, "refresh_token": refresh_token}), 200

@@ -27,7 +27,7 @@ REFRESH_TOKEN_LENGTH = 16
 logger = get_logger()
 
 class AuthenticationManager:
-    def refresh_access_token(self, old_access_token: str, refresh_token:  str) -> tuple[str, int, str]:
+    def refresh_access_token(self, refresh_token: str) -> tuple[str, int, str]:
         """
         :params old_access_token str:
         :params refresh_token str:
@@ -35,10 +35,6 @@ class AuthenticationManager:
         :returns expires_in: Expiry in seconds
         :returns refresh_token: New refresh token for user if user is signed in otherwise send back same refresh token
         """
-        if not isinstance(old_access_token, str) or not old_access_token.strip():
-            raise AuthAccessTokenMissingError("The access_token is missing.")
-        if not isinstance(refresh_token, str) or not refresh_token.strip():
-            raise AuthRefreshTokenMissingError("The refresh_token is missing.")
 
         try:
             with Database.getConnection() as conn:
