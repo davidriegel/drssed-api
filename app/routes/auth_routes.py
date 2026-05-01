@@ -47,7 +47,7 @@ def delete_refresh_token():
 @limiter.limit("5 per minute")
 @authorize_request
 def upgrade_guest():
-    if g.is_guest is False:
+    if not g.is_guest:
         raise ConflictError
     
     data: dict = request.get_json()

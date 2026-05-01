@@ -134,7 +134,7 @@ class AuthenticationManager:
         
         return user_id
     
-    def get_authorization_status_from_token(self, token: str) -> bool:
+    def get_is_guest_from_token(self, token: str) -> bool:
         payload = self._get_payload_from_access_token(token)
         
         is_guest = payload.get('is_guest')

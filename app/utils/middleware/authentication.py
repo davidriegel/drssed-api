@@ -17,7 +17,7 @@ def authorize_request(f):
             raise UnauthorizedError
 
         g.user_id = authentication_manager.get_user_id_from_token(token)
-        g.is_guest = authentication_manager.get_authorization_status_from_token(token)
+        g.is_guest = authentication_manager.get_is_guest_from_token(token)
 
         return f(*args, **kwargs)
 
