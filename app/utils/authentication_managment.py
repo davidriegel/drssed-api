@@ -29,7 +29,6 @@ logger = get_logger()
 class AuthenticationManager:
     def refresh_access_token(self, refresh_token: str) -> tuple[str, int, str]:
         """
-        :params old_access_token str:
         :params refresh_token str:
         :returns access_token: Fresh access token for user
         :returns expires_in: Expiry in seconds
