@@ -155,23 +155,4 @@ def create_clothing_piece():
 
     return jsonify({"clothing": clothing.to_dict()}), 201
 
-@users.route('/me/username', methods=['PUT'])
-@authorize_request
-@limiter.limit('1 per hour')
-def set_new_username():
-    data: dict = request.get_json()
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-    
-    username = data.get("username", None)
-    
-    try:
-        user_manager.update_user_username(g.user_id, username)
-    except (UsernameTooShortError, UsernameTooLongError) as e:
-        return jsonify({"error": str(e)}), 400
-    except UsernameAlreadyInUseError as e:
-        return jsonify({"error": str(e), "key": "username"}), 409
-    
-    return jsonify({"message": "Username updated successfully."}), 200
-
 # TODO: Create endpoint to delete account
