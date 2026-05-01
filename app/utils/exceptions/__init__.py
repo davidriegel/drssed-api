@@ -10,7 +10,6 @@ from app.utils.exceptions.base import (
     OutfitValidationError,
     OutfitNotFoundError,
     OutfitPermissionError,
-    AuthValidationError,
     UserValidationError,
     UserPermissionError,
     UserConflictError,
@@ -49,7 +48,6 @@ from app.utils.exceptions.outfits import (
     OutfitSceneInvalidError,
     OutfitPreviewInvalidError
 )
-from app.utils.exceptions.auth import AuthTokenExpiredError, AuthAccessTokenInvalidError, AuthRefreshTokenInvalidError, AuthAccessTokenMissingError, AuthRefreshTokenMissingError, AuthCredentialsWrongError, AuthCredentialsMissingError
 from app.utils.exceptions.user import (
     SignInNameMissingError,
     EmailMissingError,
@@ -75,7 +73,6 @@ __all__ = [
     "ClothingValidationError",
     "ClothingNotFoundError",
     "ClothingConflictError",
-    "AuthValidationError",
     "UnsupportedFileTypeError",
     "FileTooLargeError",
     "ImageUnclearError",
@@ -108,13 +105,6 @@ __all__ = [
     "OutfitSceneMissingError",
     "OutfitSceneInvalidError",
     "OutfitPreviewInvalidError",
-    "AuthTokenExpiredError",
-    "AuthAccessTokenInvalidError",
-    "AuthRefreshTokenInvalidError",
-    "AuthAccessTokenMissingError",
-    "AuthRefreshTokenMissingError",
-    "AuthCredentialsWrongError",
-    "AuthCredentialsMissingError",
     "UserValidationError",
     "UserNotFoundError",
     "UserPermissionError",

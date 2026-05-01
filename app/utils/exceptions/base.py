@@ -46,13 +46,7 @@ class OutfitNotFoundError(NotFoundError):
 class OutfitPermissionError(PermissionError):
     def __init__(self, message="You do not have permission to access this outfit"):
         super().__init__(message)
-        
-# Authentication
 
-class AuthValidationError(ValidationError):
-    def __init__(self, message="Authentication validation error occurred"):
-        super().__init__(message)
-        
 # User
 
 class UserValidationError(ValidationError):
