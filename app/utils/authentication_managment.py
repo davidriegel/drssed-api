@@ -58,10 +58,10 @@ class AuthenticationManager:
             
             is_guest, = result
             
-            if not isinstance(is_guest, bool):
-                raise ValueError("expected is_guest to be a bool")
+            if not isinstance(is_guest, int) and not is_guest in (0, 1):
+                raise ValueError("expected is_guest to be a int of value 0 or 1")
 
-            access_token = self._generate_access_token(user_id, is_guest=is_guest)
+            access_token = self._generate_access_token(user_id, is_guest=bool(is_guest))
             new_refresh_token = self._generate_refresh_token()
 
             if is_guest:
