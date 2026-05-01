@@ -4,7 +4,7 @@ import traceback
 import os
 from typing import Optional
 from app.utils.database import Database
-from app.utils.exceptions import ValidationError, NotFoundError, ConflictError, UsernameTooShortError, UsernameMissingError, UsernameAlreadyInUseError, AuthCredentialsWrongError, UserNotFoundError
+from app.utils.exceptions import ValidationError, NotFoundError, ConflictError, AuthCredentialsWrongError, UserNotFoundError
 from app.utils.helpers import helper
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
@@ -128,5 +128,24 @@ class UserManager:
             logger.error(f"An unexpected error occurred while getting user profile from database: {e}")
             logger.error(traceback.format_exc())
             raise e
+        
+    def delete_account_by_id(self, user_id: str, password: str) -> None:
+        try:
+            with Database.getConnection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT password FROM users WHERE user_id = %s;", (user_id, ))
+                result = cursor.fetchone()
+                
+                if result is None:
+                    raise NotFoundError
+                
+                hashed_password, = result
+            
+                PasswordHasher().verify(str(hashed_password), password)
+                
+                cursor.execute("DELETE FROM users WHERE user_id = %s;", (user_id, ))
+                conn.commit()
+        except VerifyMismatchError:
+            raise AuthCredentialsWrongError
 
 user_manager = UserManager()

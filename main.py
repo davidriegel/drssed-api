@@ -11,7 +11,8 @@ from app.utils.exceptions import (
     ValidationError,
     NotFoundError,
     ConflictError,
-    PermissionError
+    PermissionError,
+    UnauthorizedError
 )
 from app.utils.helpers import helper
 from app.routes.main_routes import api as main
@@ -59,23 +60,29 @@ def outfit_permission_error_handler(error):
     
     return jsonify({"error": str(error)}), 403
 
+@api.errorhandler(UnauthorizedError)
+def unauthorized_error_handler(error):
+    logger.warning(f"Unauthorized access: {str(error)}", extra=helper.get_request_context())
+    
+    return jsonify({"error": str(error)}), 401
+
 @api.errorhandler(Exception)
 def internal_error_handler(error):
     logger.exception(f"Unhandled exception: {str(error)}", extra=helper.get_request_context())
     
-    return jsonify({"error": "An unexpected error occurred."}), 500
+    return jsonify({"error": "An unexpected error occurred"}), 500
 
 @api.errorhandler(404)
 def not_found_error_handler(error):
     logger.info("404 - Route not found", extra=helper.get_request_context())
     
-    return jsonify({"error": "Resource not found."}), 404
+    return jsonify({"error": "Resource not found"}), 404
 
 @api.errorhandler(405)
 def method_not_allowed(error):
     logger.warning("405 - Method not allowed", extra=helper.get_request_context())
     
-    return jsonify({"error": "Method not allowed."}), 405
+    return jsonify({"error": "Method not allowed"}), 405
     
 def register_blueprints():
     api.register_blueprint(main, url_prefix="/")
