@@ -17,21 +17,18 @@ logger = get_logger()
 
 class UserManager:
     def upgrade_guest_account(self, user_id: str, password: str, profile_picture: str, email: Optional[str], username: Optional[str]) -> User:
-        if not isinstance(password, str) or not password.strip():
-            raise ValidationError("Password is required.")
-        
         if len(password) < 8:
-            raise ValidationError("Password must be at least 8 characters long.")
+            raise ValidationError
         
         allowed_pictures = [os.path.splitext(file)[0] for file in os.listdir("app/static/profile_pictures/default/")]
         if profile_picture not in allowed_pictures:
-            raise ValidationError("Profile picture must be from the default options.")
+            raise ValidationError
         
         if email:
             email = email.strip().lower()
             
             if not re.match(r"^[^@]+@[^@]+\.[^@]+$", email):
-                raise ValidationError("The provided email is invalid.")
+                raise ValidationError
         else:
             email = None
                 
@@ -39,9 +36,9 @@ class UserManager:
             username = username.strip().lower()
             
             if len(username) < 3:
-                raise ValidationError("Username must be at least 3 characters long.")
+                raise ValidationError
             if len(username) > 20:
-                raise ValidationError("Username must be at most 20 characters long.")
+                raise ValidationError
         else:
             username = None
         
@@ -53,7 +50,7 @@ class UserManager:
                 cursor.execute("UPDATE users SET is_guest = FALSE, email = %s, username = %s, password = %s, profile_picture = %s WHERE user_id = %s AND is_guest = TRUE;", (email, username, hashed_password, profile_picture, user_id))
                 
                 if cursor.rowcount == 0:
-                    raise NotFoundError(f"No guest account found with user_id: {user_id}")
+                    raise NotFoundError
                 
                 cursor.execute("SELECT user_id, is_guest, username, email, created_at, updated_at, profile_picture FROM users WHERE user_id = %s;", (user_id,))
                 db_user = cursor.fetchone()
@@ -63,16 +60,11 @@ class UserManager:
                 conn.commit()
         except IntegrityError as e:
             if e.msg and "email" in e.msg:
-                raise ConflictError("The provided email is already in use.")
+                raise ConflictError(field="email")
             elif e.msg and "username" in e.msg:
-                raise ConflictError("The provided username is already in use.")
+                raise ConflictError(field="username")
             else:
-                logger.error(f"Unexpected IntegrityError: {e.msg}")
-                raise Exception(e.msg)
-        except Exception as e:
-            logger.error(f"An unexpected error occurred while upgrading a guest account: {e}")
-            logger.error(traceback.format_exc())
-            raise e
+                raise e
         
         return user
         

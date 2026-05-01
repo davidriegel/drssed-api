@@ -45,10 +45,13 @@ def delete_refresh_token():
 def upgrade_guest():
     data: dict = request.get_json()
     
-    email = data.get("email", None)
-    username = data.get("username", None)
-    password = data.get("password", None)
-    profile_picture = data.get("profile_picture", None)
+    email = data.get("email")
+    username = data.get("username")
+    password = data.get("password")
+    profile_picture = data.get("profile_picture")
+    
+    if not password or not profile_picture or (not email and not username):
+        raise ValidationError
     
     user = user_manager.upgrade_guest_account(g.user_id, password, profile_picture, email, username)
     
