@@ -1,4 +1,5 @@
 from sys import exit
+from time import perf_counter
 from mysql.connector import pooling, MySQLConnection
 from app.utils.logging import get_logger
 from os import getenv
@@ -34,3 +35,35 @@ class Database:
                 exit(1)
 
         return cls._pool.get_connection()
+    
+    @classmethod
+    def health(cls) -> dict:
+        start = perf_counter()
+        connection = None
+        cursor = None
+        try:
+            connection = cls.getConnection()
+            cursor = connection.cursor()
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+            return {
+                "status": "ok",
+                "latency_ms": round((perf_counter() - start) * 1000, 2),
+            }
+        except Exception as exc:
+            logger.warning(f"Database health check failed: {exc}")
+            return {
+                "status": "error",
+                "latency_ms": round((perf_counter() - start) * 1000, 2),
+            }
+        finally:
+            if cursor is not None:
+                try:
+                    cursor.close()
+                except Exception:
+                    pass
+            if connection is not None:
+                try:
+                    connection.close()
+                except Exception:
+                    pass

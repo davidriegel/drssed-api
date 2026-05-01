@@ -1,4 +1,4 @@
-from time import time, sleep
+from time import time, sleep, perf_counter
 from flask import jsonify, make_response
 from flask_limiter import Limiter, RequestLimit
 from flask_limiter.util import get_remote_address
@@ -7,6 +7,9 @@ from redis import Redis, RedisError
 from os import getenv
 
 logger = get_logger()
+
+REDIS_URI = getenv("REDIS_URI", "redis://localhost:6379")
+HEALTH_CHECK_TIMEOUT = 2.0
 
 def rateLimitResponse(rateLimit: RequestLimit):
     reset_in_seconds = rateLimit.reset_at - time()
@@ -23,7 +26,7 @@ def checkRedisConnection(limiter: Limiter):
 
     while retries < max_retries:
         try:
-            redis_client = Redis.from_url(limiter._storage_uri)
+            redis_client = Redis.from_url(REDIS_URI)
             redis_client.ping()
             redis_client.close()
             logger.debug("Successfully connected to Redis.")
@@ -36,11 +39,43 @@ def checkRedisConnection(limiter: Limiter):
             else:
                 logger.critical("Max retries reached. Unable to connect to Redis.")
                 raise e
+            
+def health() -> dict:
+    start = perf_counter()
+    
+    if not limiter.enabled:
+        return {"status": "disabled"}
+    
+    client = None
+    try:
+        client = Redis.from_url(
+            REDIS_URI,
+            socket_connect_timeout=HEALTH_CHECK_TIMEOUT,
+            socket_timeout=HEALTH_CHECK_TIMEOUT,
+        )
+        if not client.ping():
+            raise RuntimeError("PING returned falsy")
+        return {
+            "status": "ok",
+            "latency_ms": round((perf_counter() - start) * 1000, 2),
+        }
+    except (RedisError, Exception) as exc:
+        logger.warning(f"Redis health check failed: {exc}")
+        return {
+            "status": "error",
+            "latency_ms": round((perf_counter() - start) * 1000, 2),
+        }
+    finally:
+        if client is not None:
+            try:
+                client.close()
+            except Exception:
+                pass
 
 try:
     limiter = Limiter(
         key_func=get_remote_address,
-        storage_uri=getenv("REDIS_URI", "redis://localhost:6379"),
+        storage_uri=REDIS_URI,
         on_breach=rateLimitResponse,
         enabled=True if getenv("RATELIMITER_ENABLED", "True").lower() == "true" else False,
     )
