@@ -52,7 +52,12 @@ def not_found_error_handler(error):
 @api.errorhandler(ConflictError)
 def conflict_error_handler(error):
     logger.warning(f"Conflict: {str(error)}", extra=helper.get_request_context())
-    return jsonify({"error": str(error)}), 409
+    
+    response = {"error": str(error)}
+    if hasattr(error, 'field') and error.field:
+        response["field"] = error.field
+        
+    return jsonify(response), 409
 
 @api.errorhandler(PermissionError)
 def outfit_permission_error_handler(error):

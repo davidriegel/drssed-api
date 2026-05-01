@@ -7,9 +7,10 @@ class NotFoundError(Exception):
         super().__init__(message)
 
 class ConflictError(Exception):
-    def __init__(self, message="Resource already exists"):
+    def __init__(self, message="Resource already exists", field=None):
         super().__init__(message)
-        
+        self.field = field
+
 class PermissionError(Exception):
     def __init__(self, message="Permission denied"):
         super().__init__(message)
