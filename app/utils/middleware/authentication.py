@@ -13,7 +13,7 @@ def authorize_request(f):
         if not token:
             raise UnauthorizedError
 
-        if not authentication_manager._verify_access_token(token):
+        if not authentication_manager.verify_access_token(token):
             raise UnauthorizedError
 
         g.user_id = authentication_manager.get_user_id_from_token(token)

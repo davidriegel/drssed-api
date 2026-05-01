@@ -184,7 +184,7 @@ class AuthenticationManager:
             
         return user_id
         
-    def _verify_access_token(self, token: str) -> bool:
+    def verify_access_token(self, token: str) -> bool:
         try:
             jwt.decode(token, SECRET_TOKEN_KEY, algorithms=['HS256'])
             return True
