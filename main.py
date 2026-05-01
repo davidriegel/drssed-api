@@ -16,6 +16,7 @@ from app.utils.exceptions import (
 )
 from app.utils.helpers import helper
 from app.routes.main_routes import api as main
+from app.routes.health_routes import health
 from app.routes.auth_routes import auth
 from app.routes.users_routes import users
 from app.routes.uploads_routes import uploads
@@ -91,6 +92,7 @@ def method_not_allowed(error):
     
 def register_blueprints():
     api.register_blueprint(main, url_prefix="/")
+    api.register_blueprint(health, url_prefix="/health")
     api.register_blueprint(auth, url_prefix="/auth")
     api.register_blueprint(users, url_prefix="/users")
     api.register_blueprint(clothing, url_prefix="/clothing")
