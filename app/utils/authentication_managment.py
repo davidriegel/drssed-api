@@ -11,7 +11,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from app.utils.database import Database
 from app.models.token import Token
-from app.utils.exceptions import AuthValidationError, AuthTokenExpiredError, AuthAccessTokenInvalidError, AuthRefreshTokenInvalidError, AuthAccessTokenMissingError, AuthRefreshTokenMissingError, UserIDMissingError, UnauthorizedError
+from app.utils.exceptions import UnauthorizedError
 from app.utils.logging import get_logger
 
 SECRET_TOKEN_KEY = getenv("SECRET_TOKEN_KEY")
@@ -31,92 +31,70 @@ class AuthenticationManager:
         :params refresh_token str:
         :returns Token: A new access token, its expiry in seconds, and a new refresh token
         """
+        with Database.getConnection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT user_id, refresh_token_expiry FROM refresh_tokens WHERE refresh_token = %s;", (refresh_token,))
+            result = cursor.fetchone()
 
-        try:
-            with Database.getConnection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT user_id, refresh_token_expiry FROM refresh_tokens WHERE refresh_token = %s;", (refresh_token,))
-                result = cursor.fetchone()
-
-                if not result:
+            if not result:
+                raise UnauthorizedError
+            
+            user_id, refresh_token_expiry = result
+            
+            if isinstance(refresh_token_expiry, datetime):
+                if refresh_token_expiry < datetime.now():
                     raise UnauthorizedError
-                
-                user_id, refresh_token_expiry = result
-                
-                if isinstance(refresh_token_expiry, datetime):
-                    if refresh_token_expiry < datetime.now():
-                        raise AuthTokenExpiredError
-                
-                cursor.execute("SELECT is_guest FROM users WHERE user_id = %s", (user_id, ))
-                result = cursor.fetchone()
-                
-                if not result:
-                    cursor.execute("DELETE FROM refresh_tokens WHERE user_id = %s", (user_id,))
-                    conn.commit()
-                    raise Exception("Database integrity error: refresh token exists for non-existent user")
-                
-                is_guest, = result
-
-                access_token = self._generate_access_token(user_id, is_guest=is_guest)
-                new_refresh_token = self._generate_refresh_token()
-
-                if is_guest:
-                    cursor.execute("""
-                                UPDATE refresh_tokens
-                                SET refresh_token = %s
-                                WHERE refresh_token = %s;
-                                """, (new_refresh_token, refresh_token,))
-                else:
-                    refresh_token_expiry = (datetime.now() + timedelta(days=REFRESH_TOKEN_EXPIRY_DAYS)).strftime('%Y-%m-%d %H:%M:%S')
-                    cursor.execute("""
-                                    UPDATE refresh_tokens
-                                    SET refresh_token_expiry = %s, refresh_token = %s
-                                    WHERE refresh_token = %s;
-                                    """, (refresh_token_expiry, new_refresh_token, refresh_token,))
-                    
+            
+            cursor.execute("SELECT is_guest FROM users WHERE user_id = %s", (user_id, ))
+            result = cursor.fetchone()
+            
+            if not result:
+                cursor.execute("DELETE FROM refresh_tokens WHERE user_id = %s", (user_id,))
                 conn.commit()
+                raise Exception("Database integrity error: refresh token exists for non-existent user")
+            
+            is_guest, = result
 
-            return Token(access_token=access_token, expires_in=ACCESS_TOKEN_EXPIRY_HOURS * 60 * 60, refresh_token=new_refresh_token)
-        except AuthValidationError as e:
-            raise e
-        except Exception as e:
-            logger.error(f"An unexpected error occurred while refreshing an access token: {e}")
-            logger.error(traceback.format_exc())
-            raise e
+            access_token = self._generate_access_token(user_id, is_guest=is_guest)
+            new_refresh_token = self._generate_refresh_token()
+
+            if is_guest:
+                cursor.execute("""
+                            UPDATE refresh_tokens
+                            SET refresh_token = %s
+                            WHERE refresh_token = %s;
+                            """, (new_refresh_token, refresh_token,))
+            else:
+                refresh_token_expiry = (datetime.now() + timedelta(days=REFRESH_TOKEN_EXPIRY_DAYS)).strftime('%Y-%m-%d %H:%M:%S')
+                cursor.execute("""
+                                UPDATE refresh_tokens
+                                SET refresh_token_expiry = %s, refresh_token = %s
+                                WHERE refresh_token = %s;
+                                """, (refresh_token_expiry, new_refresh_token, refresh_token,))
+                
+            conn.commit()
+
+        return Token(access_token=access_token, expires_in=ACCESS_TOKEN_EXPIRY_HOURS * 60 * 60, refresh_token=new_refresh_token)
             
     def delete_refresh_token(self, refresh_token: str) -> None:
         """
         :params refresh_token str:
         """
-        if not isinstance(refresh_token, str) or not refresh_token.strip():
-            raise AuthRefreshTokenMissingError("The refresh_token is missing or invalid.")
+        with Database.getConnection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM refresh_tokens WHERE refresh_token = %s;", (refresh_token,))
+            if cursor.rowcount < 1:
+                raise UnauthorizedError
 
-        try:
-            with Database.getConnection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("DELETE FROM refresh_tokens WHERE refresh_token = %s;", (refresh_token,))
-                if cursor.rowcount < 1:
-                    raise AuthRefreshTokenInvalidError("The provided refresh token is invalid.")
-
-                conn.commit()
-        except AuthValidationError:
-            raise
-        except Exception as e:
-            logger.error(f"An unexpected error occurred while deleting a refresh token: {e}")
-            logger.error(traceback.format_exc())
-            raise e
+            conn.commit()
         
     def register_guest(self) -> Token:
         """
         :returns Token: A new access token, its expiry in seconds, and a new refresh token
         """
-        try:
-            user_id = self._add_user_to_database()
-            
-            return self._generate_token_pair(user_id, is_guest=True)
-        except Exception as e:
-            logger.error(f"An unexpected error occurred while registering guest: {e}")
-            raise
+        user_id = self._add_user_to_database()
+        
+        return self._generate_token_pair(user_id, is_guest=True)
         
     def sign_in_user(self, email: Optional[str], username: Optional[str], password: str) -> Token:
         try:
@@ -140,72 +118,47 @@ class AuthenticationManager:
         
         return self._generate_token_pair(str(db_user_id), False)
 
-    def get_user_id_from_token(self, token: Optional[str]) -> str:
-        if not isinstance(token, str) or not token.strip():
-            raise AuthAccessTokenMissingError("The access_token is missing or invalid.")
+    def get_user_id_from_token(self, token: str) -> str:
+        payload = self._get_payload_from_access_token(token)
         
-        try:
-            payload = self._get_payload_from_access_token(token)
-            
-            user_id = payload.get('sub')
-            
-            if not isinstance(user_id, str):
-                raise AuthAccessTokenInvalidError
-            
-            return user_id
-        except AuthValidationError as e:
-            raise e
-        except Exception as e:
-            logger.error(f"An unexpected error occurred while getting user ID from token: {e}")
-            logger.error(traceback.format_exc())
-            raise e
+        user_id = payload.get('sub')
         
-    def _generate_token_pair(self, user_id: Optional[str], is_guest: Optional[bool]) -> Token:
-        if not isinstance(user_id, str) or not user_id.strip():
-            raise UserIDMissingError("The user_id is missing or invalid.")
+        if not isinstance(user_id, str):
+            raise UnauthorizedError
         
-        if not isinstance(is_guest, bool):
-            raise ValueError("The is_guest parameter must be a boolean value.")
-
-        try:
-            with Database.getConnection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT user_id, refresh_token, refresh_token_expiry from refresh_tokens WHERE user_id = %s ORDER BY refresh_token_expiry ASC", (user_id, ))
-                result = cursor.fetchall()
+        return user_id
+        
+    def _generate_token_pair(self, user_id: str, is_guest: bool) -> Token:
+        with Database.getConnection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT user_id, refresh_token, refresh_token_expiry from refresh_tokens WHERE user_id = %s ORDER BY refresh_token_expiry ASC", (user_id, ))
+            result = cursor.fetchall()
+            
+            if len(result) >= 5:
+                refresh_token_list = result[0]
+                cursor.execute("DELETE FROM refresh_tokens WHERE refresh_token = %s", (refresh_token_list[1], ))
+        
+            refresh_token = self._generate_refresh_token()
+            refreshTokenExpiry = (datetime.now() + timedelta(days=REFRESH_TOKEN_EXPIRY_DAYS)).strftime('%Y-%m-%d %H:%M:%S')
+        
+            if not is_guest:
+                cursor.execute("INSERT INTO refresh_tokens(user_id, refresh_token, refresh_token_expiry) VALUES (%s, %s, %s);", (user_id, refresh_token, refreshTokenExpiry))
+            else:
+                cursor.execute("INSERT INTO refresh_tokens(user_id, refresh_token) VALUES(%s, %s);", (user_id, refresh_token))
                 
-                if len(result) >= 5:
-                    oldest = result[0]
-                    cursor.execute("DELETE FROM refresh_tokens WHERE refresh_token = %s", (oldest[1], ))
-            
-                refresh_token = self._generate_refresh_token()
-                refreshTokenExpiry = (datetime.now() + timedelta(days=REFRESH_TOKEN_EXPIRY_DAYS)).strftime('%Y-%m-%d %H:%M:%S')
-            
-                if not is_guest:
-                    cursor.execute("INSERT INTO refresh_tokens(user_id, refresh_token, refresh_token_expiry) VALUES (%s, %s, %s);", (user_id, refresh_token, refreshTokenExpiry))
-                else:
-                    cursor.execute("INSERT INTO refresh_tokens(user_id, refresh_token) VALUES(%s, %s);", (user_id, refresh_token))
-                    
-                conn.commit()
+            conn.commit()
 
-            access_token = self._generate_access_token(user_id, is_guest=is_guest)
+        access_token = self._generate_access_token(user_id, is_guest=is_guest)
 
-            return Token(access_token=access_token, expires_in=ACCESS_TOKEN_EXPIRY_HOURS * 60 * 60, refresh_token=refresh_token)
-        except Exception as e:
-            logger.error(f"An unexpected error occurred while generating a new token pair: {e}")
-            logger.error(traceback.format_exc())
-            raise
+        return Token(access_token=access_token, expires_in=ACCESS_TOKEN_EXPIRY_HOURS * 60 * 60, refresh_token=refresh_token)
         
     def _add_user_to_database(self, is_guest: bool = True, email: Optional[str] = None, username: Optional[str] = None, password: Optional[str] = None, profilePicture: Optional[str] = None) -> str:
         user_id = str(uuid.uuid4())
 
-        try:
-            with Database.getConnection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("INSERT INTO users(user_id, is_guest, email, username, password, profile_picture) VALUES (%s, %s, %s, %s, %s, %s);", (user_id, is_guest, email, username, password, profilePicture))
-                conn.commit()
-        except Exception as e:
-            logger.error(f"An unexpected error occurred while creating user: {e}")
-            logger.error(traceback.format_exc())
+        with Database.getConnection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO users(user_id, is_guest, email, username, password, profile_picture) VALUES (%s, %s, %s, %s, %s, %s);", (user_id, is_guest, email, username, password, profilePicture))
+            conn.commit()
             
         return user_id
         
@@ -220,10 +173,8 @@ class AuthenticationManager:
         try:
             payload = jwt.decode(token, SECRET_TOKEN_KEY, algorithms=['HS256'])
             return payload
-        except jwt.ExpiredSignatureError:
-            raise AuthTokenExpiredError("The provided access token has expired.")
-        except jwt.InvalidTokenError:
-            raise AuthAccessTokenInvalidError("The provided access token is invalid.")
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, jwt.DecodeError):
+            raise UnauthorizedError
 
     def _generate_refresh_token(self) -> str:
         randRefreshToken = "".join(secrets.token_urlsafe(REFRESH_TOKEN_LENGTH))
