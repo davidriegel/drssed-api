@@ -1,6 +1,6 @@
 __all__ = ["authorize_request"]
 
-from flask import jsonify, request, g
+from flask import request, g
 from ..authentication_managment import authentication_manager
 from app.utils.exceptions import UnauthorizedError
 from functools import wraps
