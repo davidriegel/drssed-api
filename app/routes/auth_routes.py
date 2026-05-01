@@ -36,6 +36,8 @@ def refresh_access_token():
 def delete_refresh_token():
     data = request.get_json()
     refresh_token = data.get("refresh_token")
+    if not refresh_token:
+        raise ValidationError
 
     authentication_manager.delete_refresh_token(refresh_token)
 
