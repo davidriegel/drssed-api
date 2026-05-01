@@ -12,7 +12,7 @@ from functools import wraps
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from app.utils.database import Database
-from app.utils.exceptions import AuthValidationError, AuthTokenExpiredError, AuthAccessTokenInvalidError, AuthRefreshTokenInvalidError, AuthAccessTokenMissingError, AuthRefreshTokenMissingError, UserIDMissingError, AuthCredentialsWrongError, AuthCredentialsMissingError
+from app.utils.exceptions import AuthValidationError, AuthTokenExpiredError, AuthAccessTokenInvalidError, AuthRefreshTokenInvalidError, AuthAccessTokenMissingError, AuthRefreshTokenMissingError, UserIDMissingError, AuthCredentialsWrongError, UnauthorizedError
 from app.utils.logging import get_logger
 
 SECRET_TOKEN_KEY = getenv("SECRET_TOKEN_KEY")
@@ -123,37 +123,25 @@ class AuthenticationManager:
             logger.error(f"An unexpected error occurred while registering guest: {e}")
             raise
         
-    def sign_in_user(self, email: Optional[str], username: Optional[str], password: Optional[str]) -> tuple:
-        if not isinstance(email, str) and not isinstance(username, str):
-            raise AuthCredentialsMissingError("Either email or username has to be given.")
-        
-        if not isinstance(password, str):
-            raise AuthCredentialsMissingError("The password is missing.")
-        
+    def sign_in_user(self, email: Optional[str], username: Optional[str], password: str) -> tuple[str, int, str]:
         try:
             with Database.getConnection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT password, user_id, username, email FROM users WHERE email = %s OR username = %s", (email, username))
+                if email:
+                    cursor.execute("SELECT password, user_id FROM users WHERE email = %s", (email,))
+                else:
+                    cursor.execute("SELECT password, user_id FROM users WHERE username = %s", (username,))
+                    
                 user = cursor.fetchone()
             
                 if not user:
-                    raise AuthCredentialsWrongError("The provided sign in credentials are wrong.")
+                    raise UnauthorizedError
                 
-                db_password, db_user_id, db_username, db_email = user
+                db_password, db_user_id = user
                 
-                if email != db_email and str(db_username) != username:
-                    raise AuthCredentialsWrongError("The provided sign in credentials are wrong.")
-                
-                try:
-                    PasswordHasher().verify(str(db_password), password)
-                except VerifyMismatchError:
-                    raise AuthCredentialsWrongError("The provided sign in credentials are wrong.")
-        except AuthCredentialsWrongError as e:
-            raise e
-        except Exception as e:
-            logger.error(f"An unexpected error occurred while signing in the user: {e}")
-            logger.error(traceback.format_exc())
-            raise e
+                PasswordHasher().verify(str(db_password), password)
+        except VerifyMismatchError:
+            raise UnauthorizedError
         
         return self._generate_token_pair(str(db_user_id), False)
 

@@ -3,6 +3,7 @@ from app.utils.authentication_managment import authentication_manager
 from app.utils.middleware.authentication import authorize_request
 from app.utils.user_managment import user_manager
 from app.utils.limiter import limiter
+from app.utils.exceptions import ValidationError
 
 auth = Blueprint("auth", __name__)
 
@@ -58,9 +59,12 @@ def upgrade_guest():
 def login():
     data: dict = request.get_json()
     
-    email = data.get("email", None)
-    username = data.get("username", None)
-    password = data.get("password", None)
+    email = data.get("email")
+    username = data.get("username")
+    password = data.get("password")
+    
+    if not password or (not email and not username):
+        raise ValidationError
     
     access_token, expires_in, refresh_token = authentication_manager.sign_in_user(email, username, password)
     g.user_id = authentication_manager.get_user_id_from_token(access_token)
