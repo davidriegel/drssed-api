@@ -1,5 +1,5 @@
 class ValidationError(Exception):
-    def __init__(self, message="Validation error occurred"):
+    def __init__(self, message="Validation failed"):
         super().__init__(message)
         
 class NotFoundError(Exception):
@@ -7,11 +7,15 @@ class NotFoundError(Exception):
         super().__init__(message)
 
 class ConflictError(Exception):
-    def __init__(self, message="Conflict occurred"):
+    def __init__(self, message="Resource already exists"):
         super().__init__(message)
         
 class PermissionError(Exception):
-    def __init__(self, message="You do not have permission to access this resource"):
+    def __init__(self, message="Permission denied"):
+        super().__init__(message)
+        
+class UnauthorizedError(Exception):
+    def __init__(self, message="Invalid credentials"):
         super().__init__(message)
 
 # Clothing
