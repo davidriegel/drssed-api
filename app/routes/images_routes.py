@@ -15,7 +15,7 @@ def generate_image():
     
     file = request.files.get("file", None)
     try:
-        image_url, image_id, image_color, image_category, image_seasons, image_tags = image_manager.process_image_preview(file)
+        image_url, image_id, image_color, image_category, image_sub_category, image_seasons, image_tags = image_manager.process_image_preview(file)
         
     except FileTooLargeError as e:
         return jsonify({"error": str(e)}), 413
@@ -27,6 +27,7 @@ def generate_image():
             "image_id": image_id,
             "image_color": image_color,
             "image_category": image_category,
+            "image_sub_category": image_sub_category,
             "image_seasons": image_seasons,
             "image_tags": image_tags
         }), 201
