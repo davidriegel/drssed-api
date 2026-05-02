@@ -5,28 +5,6 @@ from app.utils.logging import get_logger
 uploads = Blueprint("uploads", __name__)
 logger = get_logger()
 
-#@uploads.route('/profile_pictures/default/<filename>.png', methods=['GET'])
-#@uploads.route('/profile_pictures/<user_id>.webp', methods=['GET'])
-#@uploads.route('/profile_pictures/<user_id>', methods=['GET'])
-#@limiter.limit("3 per minute")
-#def getProfilePicture(user_id=None, filename=None):
-#    try:
-#        if filename:
-#            return send_from_directory('app/static/profile_pictures/default', f'{filename}.png')
-#        
-#        return send_from_directory('app/static/profile_pictures', f'{user_id}.webp')
-#    except NotFound:
-#        try:
-#            return send_from_directory(user_manager.getUserProfilePicture(user_id))
-#        except UserNotFoundError as e:
-#            return send_from_directory('app/static/profile_pictures/default', f'{user_id}.png')
-#        except Exception as e:
-#            logger.error(f"An unexpected error occurred: {e}")
-#            return jsonify({"error": f"An unexpected error occurred: {e}"}), 500
-#    except Exception as e:
-#        logger.error(f"An unexpected error occurred: {e}")
-#        return jsonify({"error": f"An unexpected error occurred: {e}"}), 500
-
 @uploads.route('/clothing_images/<clothing_id>.webp', methods=['GET'])
 @uploads.route('/clothing_images/<clothing_id>', methods=['GET'])
 @limiter.limit("10 per minute")
