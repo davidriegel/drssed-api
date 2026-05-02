@@ -11,7 +11,7 @@ from PIL import Image
 from io import BytesIO
 from backgroundremover import bg
 from app.utils.logging import get_logger
-from app.models.clothing import ClothingCategory
+from app.models.clothing import ClothingCategory, ClothingSubCategory
 from urllib.parse import urljoin
 
 from sklearn.cluster import KMeans
@@ -23,11 +23,29 @@ fclip = FashionCLIP("fashion-clip")
 
 logger = get_logger()
 
-CATEGORIES = [category.value for category in ClothingCategory]
+SPECIFIC_CATEGORIES = [sub.value for sub in ClothingSubCategory]
+
+CATEGORY_MAP: dict[ClothingSubCategory, ClothingCategory] = {
+    ClothingSubCategory.T_SHIRT: ClothingCategory.TOP,
+    ClothingSubCategory.SHIRT: ClothingCategory.TOP,
+    ClothingSubCategory.POLO_SHIRT: ClothingCategory.TOP,
+    ClothingSubCategory.SWEATER: ClothingCategory.TOP,
+    ClothingSubCategory.HOODIE: ClothingCategory.TOP,
+    ClothingSubCategory.JEANS: ClothingCategory.BOTTOM,
+    ClothingSubCategory.TROUSERS: ClothingCategory.BOTTOM,
+    ClothingSubCategory.SHORTS: ClothingCategory.BOTTOM,
+    ClothingSubCategory.SKIRT: ClothingCategory.BOTTOM,
+    ClothingSubCategory.JACKET: ClothingCategory.JACKET,
+    ClothingSubCategory.DENIM_JACKET: ClothingCategory.JACKET,
+    ClothingSubCategory.SPORTS_JACKET: ClothingCategory.JACKET,
+    ClothingSubCategory.COAT: ClothingCategory.JACKET,
+    ClothingSubCategory.BLAZER: ClothingCategory.JACKET,
+    ClothingSubCategory.DRESS: ClothingCategory.ONE_PIECE,
+}
 
 class ImageManager:
     
-    def process_image_preview(self, file: Optional[FileStorage]) -> tuple[str, str, str, str, list[str], list[str]]:
+    def process_image_preview(self, file: Optional[FileStorage]) -> tuple[str, str, str, str, str, list[str], list[str]]:
         if not isinstance(file, FileStorage) or not isinstance(file.filename, str) or not file.filename.endswith((".png", ".jpg", ".jpeg")):
             raise UnsupportedFileTypeError("The file provided is not a supported image type. Supported types are PNG, JPG, and JPEG.")
         
@@ -44,21 +62,22 @@ class ImageManager:
         
         dominant_hexcode = self._extract_dominant_color(processed_image)
         
-        clothing_category = self._extract_clothing_category(image_path)
+        clothing_category, clothing_sub_category = self._extract_clothing_category(image_path)
         
         image_url = str(urljoin(os.getenv("API_BASE_URL", ""), f"uploads/temp/{image_id}.webp"))
         
-        return image_url, image_id, dominant_hexcode, clothing_category, [], []
+        return image_url, image_id, dominant_hexcode, clothing_category, clothing_sub_category, [], []
     
-    def _extract_clothing_category(self, image_path: str) -> str:
+    def _extract_clothing_category(self, image_path: str) -> tuple[ClothingCategory, ClothingSubCategory]:
         image_emb = fclip.encode_images([image_path], batch_size=1)
-        text_emb = fclip.encode_text(CATEGORIES, batch_size=1)
-        
+        text_emb = fclip.encode_text(SPECIFIC_CATEGORIES, batch_size=1)
+
         sims = (image_emb @ text_emb.T).squeeze(0)
         best_idx = int(np.argmax(sims))
-        predicted_category = CATEGORIES[best_idx]
-        
-        return predicted_category
+        sub_category = ClothingSubCategory(SPECIFIC_CATEGORIES[best_idx])
+        category = CATEGORY_MAP[sub_category]
+
+        return category, sub_category
         
     def _extract_dominant_color(self, image: Image.Image) -> str:
         arr = np.array(image.resize((100, 100)))

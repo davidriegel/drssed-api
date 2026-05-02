@@ -3,6 +3,7 @@ from flask import Blueprint, request, jsonify, g
 from ..utils.user_managment import user_manager
 from app.utils.outfit_managment import outfit_manager
 from app.utils.clothing_managment import clothing_manager
+from app.models.clothing import ClothingSeason, ClothingTags, ClothingCategory, ClothingSubCategory
 from ..utils.exceptions import ValidationError
 from ..utils.limiter import limiter
 from ..utils.helpers import helper
@@ -145,12 +146,38 @@ def create_clothing_piece():
     name = data.get("name", None)
     description = data.get("description", None)
     category = data.get("category", None)
+    sub_category = data.get("sub_category", None)
     color = data.get("color", None)
     seasons = data.get("seasons", [])
     tags = data.get("tags", [])
     image_id = data.get("image_id", None)
+    
+    if not name or not category or not sub_category or not color or not image_id:
+        raise ValidationError
+    
+    if str(category).upper() not in ClothingCategory.__members__:
+        raise ValidationError
+    
+    typed_category = ClothingCategory[category.upper()]
+    
+    if str(sub_category).upper() not in ClothingSubCategory.__members__:
+        raise ValidationError
+    
+    typed_sub_category = ClothingSubCategory[sub_category.upper()]
+    
+    for season in seasons:
+        if str(season).upper() not in ClothingSeason.__members__:
+            raise ValidationError
+        
+    typed_seasons = [ClothingSeason[season.upper()] for season in seasons]
 
-    clothing = clothing_manager.create_clothing(g.user_id, name, category, image_id, color, seasons, tags, description)
+    for tag in tags:
+        if str(tag).upper() not in ClothingTags.__members__:
+            raise ValidationError
+        
+    typed_tags = [ClothingTags[tag.upper()] for tag in tags]
+
+    clothing = clothing_manager.create_clothing(g.user_id, name, typed_category, typed_sub_category, image_id, color, typed_seasons, typed_tags, description)
 
     return jsonify({"clothing": clothing.to_dict()}), 201
 

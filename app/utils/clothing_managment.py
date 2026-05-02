@@ -5,10 +5,10 @@ import uuid
 from re import match as re_match
 from datetime import datetime
 from app.utils.database import Database
-from app.utils.exceptions import ClothingNotFoundError, ClothingImageInvalidError, ClothingNameMissingError, ClothingCategoryMissingError, ClothingColorMissingError, ClothingImageMissingError, ClothingNameTooShortError, ClothingNameTooLongError, ClothingDescriptionTooLongError, ClothingIDMissingError, ClothingSeasonsInvalidError, ClothingTagsInvalidError, ClothingValidationError
+from app.utils.exceptions import ValidationError, ConflictError, ClothingNotFoundError, ClothingImageInvalidError, ClothingNameMissingError, ClothingCategoryMissingError, ClothingColorMissingError, ClothingImageMissingError, ClothingNameTooShortError, ClothingNameTooLongError, ClothingDescriptionTooLongError, ClothingIDMissingError, ClothingSeasonsInvalidError, ClothingTagsInvalidError, ClothingValidationError
 from typing import Optional, cast
 from mysql.connector.errors import IntegrityError
-from app.models.clothing import Clothing, ClothingCategory, ClothingSeason, ClothingTags
+from app.models.clothing import Clothing, ClothingCategory, ClothingSubCategory, ClothingSeason, ClothingTags
 from app.utils.logging import get_logger
 from app.utils.helpers import helper
 from app.utils.image_managment import image_manager
@@ -83,57 +83,31 @@ class ClothingManager:
 
         return updated_clothes, deleted_ids
 
-    def create_clothing(self, user_id: str, name: str, category: str, image_id: str, color: Optional[str], seasons: Optional[list] = None, tags: Optional[list] = None, description: Optional[str] = None) -> Clothing:
-        if not isinstance(name, str) or not name.strip():
-            raise ClothingNameMissingError("The name is missing.")
-        
-        if not isinstance(category, str) or not category.strip():
-            raise ClothingCategoryMissingError("The category is missing.")
-        
-        if not isinstance(image_id, str) or not image_id.strip():
-            raise ClothingImageMissingError("The image filename is missing.")
-        
+    def create_clothing(self, user_id: str, name: str, category: ClothingCategory, sub_category: ClothingSubCategory, image_id: str, color: str, seasons: list[ClothingSeason], tags: list[ClothingTags], description: Optional[str] = None) -> Clothing:
         color_regex = r"^#([A-Fa-f0-9]{6})$"
         if isinstance(color, str) and not re_match(color_regex, color):
-            raise ClothingColorMissingError("The color is missing or invalid. It should be a hex color code (e.g., #FFFFFF).")
+            raise ValidationError
 
         if not os.path.exists(os.path.join("app", "static", "temp", image_id + ".webp")):
-            raise ClothingImageMissingError("The provided image file does not exist.")
-        
-        if category.upper() not in ClothingCategory.__members__:
-            raise ClothingCategoryMissingError("The provided category is not valid. It should be one of the following: " + ", ".join(ClothingCategory.__members__.keys()))
+            raise ValidationError("The provided image file does not exist.")
         
         if len(name) < 3:
-            raise ClothingNameTooShortError("The provided name is too short, it has to be at least 3 characters long.")
+            raise ValidationError
         
         if len(name) > 50:
-            raise ClothingNameTooLongError("The provided name is too long, it has to be at most 50 characters long.")
+            raise ValidationError
             
         if isinstance(description, str) and len(description) > 255:
-            raise ClothingDescriptionTooLongError("The provided description is too long, it has to be at most 255 characters long.")
-
-        if isinstance(seasons, list) and all(isinstance(season, str) for season in seasons):
-            for season in seasons:
-                if str(season).upper() not in ClothingSeason.__members__:
-                    raise ValueError(f"The provided season ({season}) is not valid. It should be one of the following: " + ", ".join(ClothingSeason.__members__.keys()))
-        
-            seasons = [ClothingSeason[season.upper()] for season in seasons]
-        
-        if isinstance(tags, list) and all(isinstance(tag, str) for tag in tags):
-            for tag in tags:
-                if str(tag).upper() not in ClothingTags.__members__:
-                    raise ValueError(f"The provided tag ({tag}) is not valid. It should be one of the following: " + ", ".join(ClothingTags.__members__.keys()))
-        
-            tags = [ClothingTags[tag.upper()] for tag in tags]
+            raise ValidationError
 
         clothing_id = str(uuid.uuid4())
 
-        clothing = Clothing(clothing_id, True, name, ClothingCategory[category.upper()], color, datetime.now(), user_id, image_id, seasons, tags, description)
+        clothing = Clothing(clothing_id, True, name, category, sub_category, color, datetime.now(), user_id, image_id, seasons, tags, description)
 
         try:
             with Database.getConnection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("INSERT INTO clothing(clothing_id, is_public, name, category, image_id, user_id, color, description) VALUES (%s, %s, %s, %s, %s, %s, %s, %s);", (clothing.clothing_id, clothing.is_public, clothing.name, clothing.category.name, clothing.image_id, clothing.user_id, clothing.color, clothing.description))
+                cursor.execute("INSERT INTO clothing(clothing_id, is_public, name, category, sub_category, image_id, user_id, color, description) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);", (clothing.clothing_id, clothing.is_public, clothing.name, clothing.category.name, clothing.sub_category.name, clothing.image_id, clothing.user_id, clothing.color, clothing.description))
                 for season in clothing.seasons:
                     cursor.execute("INSERT INTO clothing_seasons(clothing_id, season) VALUES (%s, %s);", (clothing.clothing_id, season.name))
                 for tag in clothing.tags:
@@ -142,7 +116,7 @@ class ClothingManager:
 
                 image_manager.move_preview_image_to_permanent(image_id)
         except IntegrityError as e:
-            raise ClothingImageInvalidError("The provided image is already used by another clothing.")
+            raise ConflictError
         except Exception as e:
             logger.error(f"An unexpected error occurred while adding a new clothing to the database: {e}")
             logger.error(traceback.format_exc())

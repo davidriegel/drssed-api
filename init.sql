@@ -35,6 +35,7 @@ CREATE TABLE
         is_public BOOLEAN DEFAULT TRUE,
         name VARCHAR(50) NOT NULL,
         category VARCHAR(50) NOT NULL,
+        sub_category VARCHAR(50) NOT NULL,
         image_id VARCHAR(36) UNIQUE NOT NULL,
         user_id VARCHAR(36) NOT NULL,
         color CHAR(7) NOT NULL,
