@@ -55,27 +55,19 @@ def init_scheduler(app) -> None:
     atexit.register(_shutdown)
 
 
-def register_job(
-    func: Callable,
-    trigger: BaseTrigger,
-    job_id: str,
-    name: Optional[str] = None,
-) -> None:
+def register_job(job: JobSpec) -> None:
     """
     Register a job with the scheduler. The function will automatically be wrapped
     in the Flask app context, so services can use current_app, Database, etc.
     
-    :param func: The function to execute (no arguments)
-    :param trigger: APScheduler trigger (e.g. CronTrigger, IntervalTrigger)
-    :param job_id: Unique identifier for the job
-    :param name: Optional human-readable job name
+    :param job: The job specification
     """
     if _scheduler is None:
         if getenv("DISABLE_SCHEDULER", "false").lower() == "true":
-            logger.debug(f"Scheduler disabled, skipping registration of '{job_id}'")
+            logger.debug(f"Scheduler disabled, skipping registration of '{job.job_id}'")
             return
         raise RuntimeError(
-            f"Cannot register job '{job_id}': scheduler not initialized. "
+            f"Cannot register job '{job.job_id}': scheduler not initialized. "
             "Call init_scheduler(app) first."
         )
     
@@ -83,23 +75,25 @@ def register_job(
         raise RuntimeError("Scheduler is missing app context")
     
     captured_app = _app
+    captured_func = job.func
+    captured_id = job.job_id
     
     def wrapped():
         try:
             with captured_app.app_context():
-                func()
+                captured_func()
         except Exception as e:
-            logger.exception(f"Job '{job_id}' crashed: {e}")
+            logger.exception(f"Job '{captured_id}' crashed: {e}")
     
     _scheduler.add_job(
         func=wrapped,
-        trigger=trigger,
-        id=job_id,
-        name=name or job_id,
+        trigger=job.trigger,
+        id=job.job_id,
+        name=job.name or job.job_id,
         replace_existing=True,
     )
     
-    logger.info(f"Registered scheduled job: {job_id}")
+    logger.info(f"Registered scheduled job: {job.job_id}")
 
 
 def _shutdown() -> None:

@@ -5,8 +5,9 @@ load_dotenv()
 
 from flask import Flask, jsonify
 from app.core.limiter import limiter
-from app.core.scheduler import init_scheduler
+from app.core.scheduler import init_scheduler, register_job
 from app.core.logging import get_logger, setup_logging
+from app.services.cleanup import create_cleanup_jobs
 from app.utils.middleware.request_logger import init_request_logging
 from app.utils.exceptions import (
     ValidationError,
@@ -30,11 +31,15 @@ api = Flask("Drssed API")
 setup_logging(api)
 logger = get_logger("main")
 
+all_jobs = [*create_cleanup_jobs()]
+
 def prepare_api():
     limiter.init_app(api)
     
     init_request_logging(api)
     init_scheduler(api)
+    for job in all_jobs:
+        register_job(job)
 
     prepare_static_directories()
     register_blueprints()
