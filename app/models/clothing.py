@@ -4,16 +4,16 @@ from typing import Optional
 from dataclasses import dataclass, asdict
 
 class ClothingTags(str, Enum):
-    CASUAL = "Casual"
-    FORMAL = "Formal"
-    SPORTS = "Sports"
-    VINTAGE = "Vintage"
+    CASUAL = "CASUAL"
+    FORMAL = "FORMAL"
+    SPORTS = "SPORTS"
+    VINTAGE = "VINTAGE"
     
 class ClothingSeason(str, Enum):
-    SPRING = "Spring"
-    SUMMER = "Summer"
-    AUTUMN = "Autumn"
-    WINTER = "Winter"
+    SPRING = "SPRING"
+    SUMMER = "SUMMER"
+    AUTUMN = "AUTUMN"
+    WINTER = "WINTER"
     
 class ClothingCategory(str, Enum):
     JACKET = "JACKET"
