@@ -77,6 +77,8 @@ class AuthenticationManager:
                                 WHERE refresh_token = %s;
                                 """, (refresh_token_expiry, new_refresh_token, refresh_token,))
                 
+            cursor.execute("UPDATE users SET last_active_at = CURRENT_TIMESTAMP WHERE user_id = %s", (user_id,))
+                
             conn.commit()
 
         return Token(access_token=access_token, expires_in=ACCESS_TOKEN_EXPIRY_HOURS * 60 * 60, refresh_token=new_refresh_token)
