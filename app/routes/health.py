@@ -1,9 +1,9 @@
 import time
 import os
 from flask import Blueprint, jsonify
-from app.utils.limiter import health as redis_health
-from app.utils.limiter import limiter
-from app.utils.database import Database
+from app.core.limiter import health as redis_health
+from app.core.limiter import limiter
+from app.core.database import Database
 
 health = Blueprint("health", __name__)
 
