@@ -11,7 +11,7 @@ from mysql.connector.errors import IntegrityError
 from app.models.clothing import Clothing, ClothingCategory, ClothingSubCategory, ClothingSeason, ClothingTags
 from app.utils.logging import get_logger
 from app.utils.helpers import helper
-from app.utils.image_managment import image_manager
+from app.utils.image_management import image_manager
 import os
 
 logger = get_logger()

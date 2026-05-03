@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, g
-from ..utils.user_managment import user_manager
-from app.utils.outfit_managment import outfit_manager
-from app.utils.clothing_managment import clothing_manager
+from ..utils.user_management import user_manager
+from app.utils.outfit_management import outfit_manager
+from app.utils.clothing_management import clothing_manager
 from app.models.clothing import ClothingSeason, ClothingTags, ClothingCategory, ClothingSubCategory
 from ..utils.exceptions import ValidationError, ConflictError
 from ..utils.limiter import limiter

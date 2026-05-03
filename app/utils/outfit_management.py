@@ -10,8 +10,8 @@ from typing import Optional, cast
 from mysql.connector.errors import IntegrityError
 from app.models.outfit import Outfit, OutfitTags, OutfitSeason, CanvasPlacement
 from app.utils.helpers import helper
-from app.utils.clothing_managment import clothing_manager
-from app.utils.image_managment import image_manager
+from app.utils.clothing_management import clothing_manager
+from app.utils.image_management import image_manager
 from app.utils.logging import get_logger
 
 logger = get_logger()
