@@ -3,7 +3,7 @@ __all__ = ["user_manager"]
 import traceback
 import os
 from typing import Optional
-from app.utils.database import Database
+from app.core.database import Database
 from app.utils.exceptions import ValidationError, NotFoundError, ConflictError, UnauthorizedError, UserNotFoundError
 from app.utils.helpers import helper
 from argon2 import PasswordHasher
@@ -11,7 +11,7 @@ from argon2.exceptions import VerifyMismatchError
 from mysql.connector.errors import IntegrityError
 from app.models.user import User
 import re
-from app.utils.logging import get_logger
+from app.core.logging import get_logger
 
 logger = get_logger()
 

@@ -2,7 +2,7 @@ from time import time, sleep, perf_counter
 from flask import jsonify, make_response
 from flask_limiter import Limiter, RequestLimit
 from flask_limiter.util import get_remote_address
-from app.utils.logging import get_logger
+from app.core.logging import get_logger
 from redis import Redis, RedisError
 from os import getenv
 

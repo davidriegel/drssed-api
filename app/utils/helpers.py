@@ -3,7 +3,7 @@ __all__ = ["helper"]
 from ..models.outfit import CanvasPlacement
 from flask import has_request_context, g, request
 from typing import Any, cast, Sequence
-from app.utils.logging import get_logger
+from app.core.logging import get_logger
 from decimal import Decimal
 
 logger = get_logger()

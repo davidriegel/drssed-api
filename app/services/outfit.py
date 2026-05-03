@@ -4,15 +4,15 @@ import traceback
 import uuid
 import threading
 from datetime import datetime
-from app.utils.database import Database
+from app.core.database import Database
 from app.utils.exceptions import OutfitNotFoundError, OutfitNameTooShortError, OutfitNameTooLongError, OutfitDescriptionTooLongError, OutfitNameMissingError, OutfitClothingIDsMissingError, OutfitClothingIDInvalidError, OutfitSeasonsInvalidError, OutfitTagsInvalidError, OutfitIDMissingError, OutfitPermissionError, OutfitLimitInvalidError, OutfitOffsetInvalidError, OutfitValidationError, OutfitPublicMissingError, OutfitFavoriteMissingError, OutfitSceneMissingError, OutfitSceneInvalidError
 from typing import Optional, cast
 from mysql.connector.errors import IntegrityError
 from app.models.outfit import Outfit, OutfitTags, OutfitSeason, CanvasPlacement
 from app.utils.helpers import helper
-from app.utils.clothing_management import clothing_manager
-from app.utils.image_management import image_manager
-from app.utils.logging import get_logger
+from app.services.clothing import clothing_manager
+from app.services.image import image_manager
+from app.core.logging import get_logger
 
 logger = get_logger()
 

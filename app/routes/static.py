@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, send_from_directory
-from app.utils.limiter import limiter
-from app.utils.logging import get_logger
+from app.core.limiter import limiter
+from app.core.logging import get_logger
 
 static = Blueprint("static", __name__)
 logger = get_logger()

@@ -1,7 +1,7 @@
 from sys import exit
 from time import perf_counter
 from mysql.connector import pooling, MySQLConnection
-from app.utils.logging import get_logger
+from app.core.logging import get_logger
 from os import getenv
 
 logger = get_logger()

@@ -1,8 +1,8 @@
 from flask import Blueprint, request, jsonify, g
-from app.utils.authentication_management import authentication_manager
+from app.services.authentication import authentication_manager
 from app.utils.middleware.authentication import authorize_request
-from app.utils.user_management import user_manager
-from app.utils.limiter import limiter
+from app.services.user import user_manager
+from app.core.limiter import limiter
 from app.utils.exceptions import ValidationError
 
 auth = Blueprint("auth", __name__)

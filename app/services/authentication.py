@@ -8,10 +8,10 @@ from typing import Optional
 from datetime import datetime, timedelta
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
-from app.utils.database import Database
+from app.core.database import Database
 from app.models.token import Token
 from app.utils.exceptions import UnauthorizedError
-from app.utils.logging import get_logger
+from app.core.logging import get_logger
 
 SECRET_TOKEN_KEY = getenv("SECRET_TOKEN_KEY")
 

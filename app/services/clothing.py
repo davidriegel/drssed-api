@@ -4,14 +4,14 @@ import traceback
 import uuid
 from re import match as re_match
 from datetime import datetime
-from app.utils.database import Database
+from app.core.database import Database
 from app.utils.exceptions import ValidationError, ConflictError, ClothingNotFoundError, ClothingImageInvalidError, ClothingNameMissingError, ClothingCategoryMissingError, ClothingColorMissingError, ClothingImageMissingError, ClothingNameTooShortError, ClothingNameTooLongError, ClothingDescriptionTooLongError, ClothingIDMissingError, ClothingSeasonsInvalidError, ClothingTagsInvalidError, ClothingValidationError
 from typing import Optional, cast
 from mysql.connector.errors import IntegrityError
 from app.models.clothing import Clothing, ClothingCategory, ClothingSubCategory, ClothingSeason, ClothingTags
-from app.utils.logging import get_logger
+from app.core.logging import get_logger
 from app.utils.helpers import helper
-from app.utils.image_management import image_manager
+from app.services.image import image_manager
 import os
 
 logger = get_logger()

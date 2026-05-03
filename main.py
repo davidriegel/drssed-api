@@ -4,8 +4,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from flask import Flask, jsonify
-from app.utils.limiter import limiter
-from app.utils.logging import get_logger, setup_logging
+from app.core.limiter import limiter
+from app.core.logging import get_logger, setup_logging
 from app.utils.middleware.request_logger import init_request_logging
 from app.utils.exceptions import (
     ValidationError,
@@ -15,14 +15,14 @@ from app.utils.exceptions import (
     UnauthorizedError
 )
 from app.utils.helpers import helper
-from app.routes.main_routes import api as main
-from app.routes.health_routes import health
-from app.routes.auth_routes import auth
-from app.routes.users_routes import users
-from app.routes.static_routes import static
-from app.routes.clothing_routes import clothing
-from app.routes.images_routes import images
-from app.routes.outfits_routes import outfits
+from app.routes.main import api as main
+from app.routes.health import health
+from app.routes.auth import auth
+from app.routes.users import users
+from app.routes.static import static
+from app.routes.clothing import clothing
+from app.routes.images import images
+from app.routes.outfits import outfits
 
 api = Flask("Drssed API")
 

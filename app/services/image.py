@@ -19,7 +19,7 @@ from werkzeug.datastructures import FileStorage
 from PIL import Image
 from io import BytesIO
 from backgroundremover import bg
-from app.utils.logging import get_logger
+from app.core.logging import get_logger
 from app.models.clothing import ClothingCategory, ClothingSubCategory
 from urllib.parse import urljoin
 
