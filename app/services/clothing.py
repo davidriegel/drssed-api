@@ -23,7 +23,7 @@ class ClothingManager:
         deleted_ids: list[str] = []
         
         statement = """
-            SELECT clothing_id, is_public, name, category, image_id, user_id, color, description, created_at, updated_at
+            SELECT *
             FROM clothing
             WHERE user_id = %s AND updated_at > %s AND deleted_at IS NULL
             ORDER BY updated_at ASC
@@ -131,7 +131,7 @@ class ClothingManager:
         try:
             with Database.getConnection() as conn:
                 cursor = conn.cursor(dictionary=True)
-                cursor.execute("SELECT clothing_id, is_public, name, category, color, created_at, image_id, user_id, description FROM clothing WHERE clothing_id = %s AND user_id = %s AND deleted_at IS NULL;", (clothing_id, user_id,))
+                cursor.execute("SELECT * FROM clothing WHERE clothing_id = %s AND user_id = %s AND deleted_at IS NULL;", (clothing_id, user_id,))
                 clothing = cursor.fetchone()
                 
                 if clothing is None:
@@ -176,7 +176,7 @@ class ClothingManager:
         where_clause = " AND ".join(conditions)
             
         statement = f"""
-            SELECT clothing_id, is_public, name, category, color, created_at, user_id, image_id, description
+            SELECT *
             FROM clothing
             WHERE {where_clause} AND deleted_at IS NULL
             ORDER BY created_at DESC
