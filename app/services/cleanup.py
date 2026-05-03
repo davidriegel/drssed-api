@@ -2,6 +2,7 @@ __all__ = ["run_guest_cleanup"]
 
 import os
 from pathlib import Path
+from flask import current_app
 from datetime import datetime, timedelta, timezone
 from apscheduler.triggers.cron import CronTrigger
 from app.core.scheduler import JobSpec
@@ -13,7 +14,6 @@ INACTIVE_DAYS = int(getenv("CLEANUP_INACTIVE_DAYS", "90"))
 MAX_DELETE_PER_RUN = int(getenv("CLEANUP_MAX_DELETE", "100"))
 CLEANUP_LOCK_NAME = "drssed_cleanup_job"
 
-STATIC_FOLDER = "static"
 PROFILE_PICTURE_SUBDIR = "profile_pictures"
 CLOTHING_SUBDIR = "clothing_images"
 OUTFIT_SUBDIR = "outfit_collages"
@@ -23,6 +23,14 @@ TEMP_SUBDIR = "temp"
 TEMP_FILE_MAX_AGE_HOURS = 24
 
 logger = get_logger()
+
+def _get_static_folder() -> Path:
+    folder = current_app.static_folder
+    
+    if not folder:
+        raise RuntimeError("Flask static_folder is not configured")
+    
+    return Path(folder)
 
 def run_guest_cleanup() -> None:
     with Database.getConnection() as conn:
@@ -48,7 +56,7 @@ def run_guest_cleanup() -> None:
             cursor.fetchone()
 
 def run_temp_cleanup() -> None:
-    temp_dir = Path(STATIC_FOLDER) / TEMP_SUBDIR
+    temp_dir = _get_static_folder() / TEMP_SUBDIR
     
     cutoff_timestamp = (datetime.now() - timedelta(hours=TEMP_FILE_MAX_AGE_HOURS)).timestamp()
     
@@ -159,7 +167,7 @@ def _collect_user_files(cursor, user_id: str) -> list:
             raise ValueError("Expected image_id to be a string")
         
         filename = f"{image_id}.webp"
-        paths.append(os.path.join(STATIC_FOLDER, CLOTHING_SUBDIR, filename))
+        paths.append(os.path.join(_get_static_folder(), CLOTHING_SUBDIR, filename))
     
     cursor.execute("SELECT outfit_id FROM outfits WHERE user_id = %s;", (user_id,))
     for row in cursor.fetchall():
@@ -172,7 +180,7 @@ def _collect_user_files(cursor, user_id: str) -> list:
             raise ValueError("Expected outfit_id to be a string")
 
         filename = f"{outfit_id}.webp"
-        paths.append(os.path.join(STATIC_FOLDER, OUTFIT_SUBDIR, filename))
+        paths.append(os.path.join(_get_static_folder(), OUTFIT_SUBDIR, filename))
     
     return paths
 
