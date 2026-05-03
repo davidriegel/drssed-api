@@ -28,7 +28,7 @@ def _get_static_folder() -> Path:
     folder = current_app.static_folder
     
     if not folder:
-        raise RuntimeError("Flask static_folder is not configured")
+        raise RuntimeError("⚠️ Flask static_folder is not configured")
     
     return Path(folder)
 
