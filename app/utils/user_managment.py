@@ -20,9 +20,12 @@ class UserManager:
         if len(password) < 8:
             raise ValidationError
         
-        allowed_pictures = [os.path.splitext(file)[0] for file in os.listdir("app/static/profile_pictures/default/")]
-        if profile_picture not in allowed_pictures:
+        default_profile_pictures = [os.path.splitext(file)[0] for file in os.listdir("app/static/profile_pictures/default/")]
+        if profile_picture not in default_profile_pictures:
             raise ValidationError
+        
+        if profile_picture in default_profile_pictures:
+            profile_picture = f"default/{profile_picture}"
         
         if email:
             email = email.strip().lower()
