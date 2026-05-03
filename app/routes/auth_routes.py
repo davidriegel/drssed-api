@@ -30,7 +30,7 @@ def refresh_access_token():
 
     return jsonify(token.to_dict()), 200
 
-@auth.route('/signout', methods=['POST'])
+@auth.route('/logout', methods=['POST'])
 @limiter.limit('2 per minute')
 @authorize_request
 def delete_refresh_token():
