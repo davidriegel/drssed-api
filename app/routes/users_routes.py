@@ -4,12 +4,33 @@ from ..utils.user_managment import user_manager
 from app.utils.outfit_managment import outfit_manager
 from app.utils.clothing_managment import clothing_manager
 from app.models.clothing import ClothingSeason, ClothingTags, ClothingCategory, ClothingSubCategory
-from ..utils.exceptions import ValidationError
+from ..utils.exceptions import ValidationError, ConflictError
 from ..utils.limiter import limiter
 from ..utils.helpers import helper
 from ..utils.middleware.authentication import authorize_request
 
 users = Blueprint("users", __name__)
+
+@users.route("/me/upgrade", methods=["POST"])
+@limiter.limit("5 per minute")
+@authorize_request
+def upgrade_guest():
+    if not g.is_guest:
+        raise ConflictError
+    
+    data: dict = request.get_json()
+    
+    email = data.get("email")
+    username = data.get("username")
+    password = data.get("password")
+    profile_picture = data.get("profile_picture")
+    
+    if not password or not profile_picture or (not email and not username):
+        raise ValidationError
+    
+    user = user_manager.upgrade_guest_account(g.user_id, password, profile_picture, email, username)
+    
+    return jsonify(user.to_dict()), 201
 
 @users.route("/me/clothing/sync", methods=["GET"])
 @limiter.limit('5 per minute')
