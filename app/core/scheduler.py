@@ -2,6 +2,7 @@ __all__ = ["init_scheduler", "register_job"]
 
 from os import getenv
 from datetime import timezone
+from dataclasses import dataclass
 from typing import Callable, Optional
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.base import BaseTrigger
@@ -11,6 +12,13 @@ logger = get_logger()
 
 _scheduler: Optional[BackgroundScheduler] = None
 _app = None
+
+@dataclass
+class JobSpec:
+    func: Callable
+    trigger: BaseTrigger
+    job_id: str
+    name: Optional[str] = None
 
 
 def init_scheduler(app) -> None:

@@ -5,6 +5,7 @@ load_dotenv()
 
 from flask import Flask, jsonify
 from app.core.limiter import limiter
+from app.core.scheduler import init_scheduler
 from app.core.logging import get_logger, setup_logging
 from app.utils.middleware.request_logger import init_request_logging
 from app.utils.exceptions import (
@@ -33,6 +34,7 @@ def prepare_api():
     limiter.init_app(api)
     
     init_request_logging(api)
+    init_scheduler(api)
 
     prepare_static_directories()
     register_blueprints()
