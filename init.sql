@@ -2,14 +2,19 @@
 CREATE TABLE
     IF NOT EXISTS users (
         user_id VARCHAR(36) PRIMARY KEY,
+        apple_user_id VARCHAR(255) UNIQUE DEFAULT NULL,
         is_guest BOOLEAN DEFAULT TRUE,
         username VARCHAR(32) UNIQUE DEFAULT NULL,
         email VARCHAR(255) UNIQUE DEFAULT NULL,
+        email_verified_at TIMESTAMP DEFAULT NULL,
         password VARCHAR(97) DEFAULT NULL,
         profile_picture VARCHAR(255) DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+
+CREATE INDEX idx_users_cleanup ON users (is_guest, last_active_at);
     
 -- Authentication tokens
 
