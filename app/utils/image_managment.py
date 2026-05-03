@@ -3,6 +3,15 @@ __all__ = ["image_manager"]
 import traceback
 import uuid
 import os
+
+# Set tokenizers parallelism to false since gunicorn already uses multiple workers
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+# Disable tqdm progress bars globally
+from tqdm import tqdm
+from functools import partialmethod
+tqdm.__init__ = partialmethod(tqdm.__init__, disable=True) # type: ignore
+
 import math
 from typing import Optional
 from app.utils.exceptions import ImageUnclearError, UnsupportedFileTypeError, FileTooLargeError

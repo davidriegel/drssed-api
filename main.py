@@ -19,7 +19,7 @@ from app.routes.main_routes import api as main
 from app.routes.health_routes import health
 from app.routes.auth_routes import auth
 from app.routes.users_routes import users
-from app.routes.uploads_routes import uploads
+from app.routes.static_routes import static
 from app.routes.clothing_routes import clothing
 from app.routes.images_routes import images
 from app.routes.outfits_routes import outfits
@@ -96,7 +96,7 @@ def register_blueprints():
     api.register_blueprint(auth, url_prefix="/auth")
     api.register_blueprint(users, url_prefix="/users")
     api.register_blueprint(clothing, url_prefix="/clothing")
-    api.register_blueprint(uploads, url_prefix="/uploads")
+    api.register_blueprint(static, url_prefix="/static")
     api.register_blueprint(images, url_prefix="/images")
     api.register_blueprint(outfits, url_prefix="/outfits")
 

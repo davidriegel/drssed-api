@@ -4,16 +4,16 @@ from typing import Optional
 from dataclasses import dataclass, asdict
 
 class ClothingTags(str, Enum):
-    CASUAL = "Casual"
-    FORMAL = "Formal"
-    SPORTS = "Sports"
-    VINTAGE = "Vintage"
+    CASUAL = "CASUAL"
+    FORMAL = "FORMAL"
+    SPORTS = "SPORTS"
+    VINTAGE = "VINTAGE"
     
 class ClothingSeason(str, Enum):
-    SPRING = "Spring"
-    SUMMER = "Summer"
-    AUTUMN = "Autumn"
-    WINTER = "Winter"
+    SPRING = "SPRING"
+    SUMMER = "SUMMER"
+    AUTUMN = "AUTUMN"
+    WINTER = "WINTER"
     
 class ClothingCategory(str, Enum):
     JACKET = "JACKET"
@@ -23,24 +23,24 @@ class ClothingCategory(str, Enum):
     
 class ClothingSubCategory(str, Enum):
     # TOP
-    T_SHIRT = "t-shirt"
-    SHIRT = "shirt"
-    POLO_SHIRT = "polo shirt"
-    SWEATER = "sweater"
-    HOODIE = "hoodie"
+    T_SHIRT = "T-SHIRT"
+    SHIRT = "SHIRT"
+    POLO_SHIRT = "POLO_SHIRT"
+    SWEATER = "SWEATER"
+    HOODIE = "HOODIE"
     # BOTTOM
-    JEANS = "jeans"
-    TROUSERS = "trousers"
-    SHORTS = "shorts"
-    SKIRT = "skirt"
+    JEANS = "JEANS"
+    TROUSERS = "TROUSERS"
+    SHORTS = "SHORTS"
+    SKIRT = "SKIRT"
     # JACKET
-    JACKET = "jacket"
-    DENIM_JACKET = "denim jacket"
-    SPORTS_JACKET = "sports jacket"
-    COAT = "coat"
-    BLAZER = "blazer"
+    JACKET = "JACKET"
+    DENIM_JACKET = "DENIM_JACKET"
+    SPORTS_JACKET = "SPORTS_JACKET"
+    COAT = "COAT"
+    BLAZER = "BLAZER"
     # ONE_PIECE
-    DRESS = "dress"
+    DRESS = "DRESS"
 
 @dataclass
 class Clothing:
