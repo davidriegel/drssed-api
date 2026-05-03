@@ -1,7 +1,7 @@
 __all__ = ["run_guest_cleanup"]
 
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from os import getenv
 from app.core.database import Database
 from app.core.logging import get_logger
@@ -41,7 +41,7 @@ def run_guest_cleanup() -> None:
             cursor.fetchone()
             
 def _do_cleanup(conn, cursor) -> None:
-    cutoff = datetime.now() - timedelta(days=INACTIVE_DAYS)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=INACTIVE_DAYS)
     
     logger.debug(f"Start cleanup", extra={"cutoff": cutoff.isoformat(), "max_delete": MAX_DELETE_PER_RUN})
     

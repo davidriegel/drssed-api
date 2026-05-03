@@ -3,7 +3,7 @@ __all__ = ["clothing_manager"]
 import traceback
 import uuid
 from re import match as re_match
-from datetime import datetime
+from datetime import datetime, timezone
 from app.core.database import Database
 from app.utils.exceptions import ValidationError, ConflictError, ClothingNotFoundError, ClothingImageInvalidError, ClothingNameMissingError, ClothingCategoryMissingError, ClothingColorMissingError, ClothingImageMissingError, ClothingNameTooShortError, ClothingNameTooLongError, ClothingDescriptionTooLongError, ClothingIDMissingError, ClothingSeasonsInvalidError, ClothingTagsInvalidError, ClothingValidationError
 from typing import Optional, cast
@@ -102,7 +102,7 @@ class ClothingManager:
 
         clothing_id = str(uuid.uuid4())
 
-        clothing = Clothing(clothing_id, True, name, category, sub_category, color, datetime.now(), user_id, image_id, seasons, tags, description)
+        clothing = Clothing(clothing_id, True, name, category, sub_category, color, datetime.now(timezone.utc), user_id, image_id, seasons, tags, description)
 
         try:
             with Database.getConnection() as conn:

@@ -5,7 +5,7 @@ import uuid
 import jwt
 from os import getenv
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from app.core.database import Database
@@ -44,7 +44,7 @@ class AuthenticationManager:
                 raise ValueError("expected user_id to be a str")
             
             if isinstance(refresh_token_expiry, datetime):
-                if refresh_token_expiry < datetime.now():
+                if refresh_token_expiry < datetime.now(timezone.utc):
                     raise UnauthorizedError
             
             cursor.execute("SELECT is_guest FROM users WHERE user_id = %s", (user_id, ))
@@ -70,7 +70,7 @@ class AuthenticationManager:
                             WHERE refresh_token = %s;
                             """, (new_refresh_token, refresh_token,))
             else:
-                refresh_token_expiry = (datetime.now() + timedelta(days=REFRESH_TOKEN_EXPIRY_DAYS)).strftime('%Y-%m-%d %H:%M:%S')
+                refresh_token_expiry = (datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRY_DAYS)).strftime('%Y-%m-%d %H:%M:%S')
                 cursor.execute("""
                                 UPDATE refresh_tokens
                                 SET refresh_token_expiry = %s, refresh_token = %s
@@ -162,7 +162,7 @@ class AuthenticationManager:
                 cursor.execute("DELETE FROM refresh_tokens WHERE refresh_token = %s", (refresh_token, ))
         
             refresh_token = self._generate_refresh_token()
-            refreshTokenExpiry = (datetime.now() + timedelta(days=REFRESH_TOKEN_EXPIRY_DAYS)).strftime('%Y-%m-%d %H:%M:%S')
+            refreshTokenExpiry = (datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRY_DAYS)).strftime('%Y-%m-%d %H:%M:%S')
         
             if not is_guest:
                 cursor.execute("INSERT INTO refresh_tokens(user_id, refresh_token, refresh_token_expiry) VALUES (%s, %s, %s);", (user_id, refresh_token, refreshTokenExpiry))
@@ -199,7 +199,7 @@ class AuthenticationManager:
     def _generate_access_token(self, user_id: str, is_guest: bool) -> str:
         payload = {
             'sub': user_id,
-            'exp': datetime.now() + timedelta(hours=ACCESS_TOKEN_EXPIRY_HOURS),
+            'exp': datetime.now(timezone.utc) + timedelta(hours=ACCESS_TOKEN_EXPIRY_HOURS),
             'is_guest': is_guest
         }
         return jwt.encode(payload, SECRET_TOKEN_KEY, algorithm='HS256')

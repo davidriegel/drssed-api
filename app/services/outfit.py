@@ -3,7 +3,7 @@ __all__ = ["outfit_manager"]
 import traceback
 import uuid
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 from app.core.database import Database
 from app.utils.exceptions import OutfitNotFoundError, OutfitNameTooShortError, OutfitNameTooLongError, OutfitDescriptionTooLongError, OutfitNameMissingError, OutfitClothingIDsMissingError, OutfitClothingIDInvalidError, OutfitSeasonsInvalidError, OutfitTagsInvalidError, OutfitIDMissingError, OutfitPermissionError, OutfitLimitInvalidError, OutfitOffsetInvalidError, OutfitValidationError, OutfitPublicMissingError, OutfitFavoriteMissingError, OutfitSceneMissingError, OutfitSceneInvalidError
 from typing import Optional, cast
@@ -190,8 +190,8 @@ class OutfitManager:
             is_public=is_public,
             is_favorite=is_favorite,
             name=name,
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
             user_id=user_id,
             scene=clothing_canvas,
             seasons=seasons,
