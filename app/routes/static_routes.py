@@ -2,11 +2,11 @@ from flask import Blueprint, jsonify, send_from_directory
 from app.utils.limiter import limiter
 from app.utils.logging import get_logger
 
-uploads = Blueprint("uploads", __name__)
+static = Blueprint("static", __name__)
 logger = get_logger()
 
-@uploads.route('/clothing_images/<clothing_id>.webp', methods=['GET'])
-@uploads.route('/clothing_images/<clothing_id>', methods=['GET'])
+@static.route('/clothing_images/<clothing_id>.webp', methods=['GET'])
+@static.route('/clothing_images/<clothing_id>', methods=['GET'])
 @limiter.limit("10 per minute")
 def getClothingImage(clothing_id):
     try:
@@ -15,7 +15,7 @@ def getClothingImage(clothing_id):
         logger.error(f"An unexpected error occurred: {e}")
         return jsonify({"error": f"An unexpected error occurred: {e}"}), 500
 
-@uploads.route('/temp/<filename>', methods=['GET'])
+@static.route('/temp/<filename>', methods=['GET'])
 @limiter.limit("2 per minute")
 def getTempImage(filename):
     if not filename:
@@ -29,7 +29,7 @@ def getTempImage(filename):
         logger.error(f"An unexpected error occurred: {e}")
         return jsonify({"error": "File not found."}), 500
 
-@uploads.get('/outfit_images/<filename>')
+@static.route('/outfit_images/<filename>', methods=['GET'])
 @limiter.limit("10 per minute")
 def get_outfit_image(filename):
     filename = filename.strip() + ".webp" if not filename.endswith(".webp") else filename
@@ -39,7 +39,3 @@ def get_outfit_image(filename):
     except Exception as e:
         logger.error(f"An unexpected error occurred: {e}")
         return jsonify({"error": f"An unexpected error occurred: {e}"}), 500
-
-@uploads.get('/openapi.yaml')
-def get_openapi_spec():
-    return send_from_directory('app/static', 'openapi.yaml')
