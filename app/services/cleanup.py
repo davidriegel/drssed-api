@@ -1,7 +1,10 @@
 __all__ = ["run_guest_cleanup"]
 
 import os
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
+from apscheduler.triggers.cron import CronTrigger
+from app.core.scheduler import JobSpec
 from os import getenv
 from app.core.database import Database
 from app.core.logging import get_logger
@@ -14,6 +17,10 @@ STATIC_FOLDER = "static"
 PROFILE_PICTURE_SUBDIR = "profile_pictures"
 CLOTHING_SUBDIR = "clothing_images"
 OUTFIT_SUBDIR = "outfit_collages"
+
+TEMP_SUBDIR = "temp"
+
+TEMP_FILE_MAX_AGE_HOURS = 24
 
 logger = get_logger()
 
@@ -39,6 +46,36 @@ def run_guest_cleanup() -> None:
         finally:
             cursor.execute("SELECT RELEASE_LOCK(%s);", (CLEANUP_LOCK_NAME,))
             cursor.fetchone()
+
+def run_temp_cleanup() -> None:
+    temp_dir = Path(STATIC_FOLDER) / TEMP_SUBDIR
+    
+    cutoff_timestamp = (datetime.now() - timedelta(hours=TEMP_FILE_MAX_AGE_HOURS)).timestamp()
+    
+    logger.debug(f"Start temporary file cleanup", extra={"max_age_hours": TEMP_FILE_MAX_AGE_HOURS})
+    
+    deleted = 0
+    skipped = 0
+    failed = 0
+    
+    for entry in temp_dir.iterdir():
+        if not entry.is_file():
+            continue
+        
+        try:
+            mtime = entry.stat().st_mtime
+            
+            if mtime >= cutoff_timestamp:
+                skipped += 1
+                continue
+            
+            entry.unlink(missing_ok=True)
+            deleted += 1
+        except Exception as e:
+            failed += 1
+            logger.error(f"Failed to delete temporary file {entry.name}: {e}")
+    
+    logger.debug("Temporary file cleanup complete", extra={"deleted": deleted, "skipped": skipped, "failed": failed})
             
 def _do_cleanup(conn, cursor) -> None:
     cutoff = datetime.now(timezone.utc) - timedelta(days=INACTIVE_DAYS)
