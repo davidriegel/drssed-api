@@ -38,11 +38,11 @@ def run_guest_cleanup() -> None:
         got_lock, = result
         
         if got_lock != 1:
-            logger.info("Cleanup skipped: lock held by another worker")
+            logger.info("Inactive guest cleanup skipped: lock held by another worker")
             return
         
         try:
-            _do_cleanup(conn, cursor)
+            _do_guest_cleanup(conn, cursor)
         finally:
             cursor.execute("SELECT RELEASE_LOCK(%s);", (CLEANUP_LOCK_NAME,))
             cursor.fetchone()
@@ -52,7 +52,7 @@ def run_temp_cleanup() -> None:
     
     cutoff_timestamp = (datetime.now() - timedelta(hours=TEMP_FILE_MAX_AGE_HOURS)).timestamp()
     
-    logger.debug(f"Start temporary file cleanup", extra={"max_age_hours": TEMP_FILE_MAX_AGE_HOURS})
+    logger.debug(f"Start orphaned temporary file cleanup", extra={"max_age_hours": TEMP_FILE_MAX_AGE_HOURS})
     
     deleted = 0
     skipped = 0
@@ -75,8 +75,8 @@ def run_temp_cleanup() -> None:
             failed += 1
             logger.error(f"Failed to delete temporary file {entry.name}: {e}")
     
-    logger.debug("Temporary file cleanup complete", extra={"deleted": deleted, "skipped": skipped, "failed": failed})
-    
+    logger.debug("Orphaned temporary file cleanup complete", extra={"deleted": deleted, "skipped": skipped, "failed": failed})
+
 def create_cleanup_jobs() -> list[JobSpec]:
     """Define all cleanup-related scheduled jobs."""
     return [
@@ -94,10 +94,10 @@ def create_cleanup_jobs() -> list[JobSpec]:
         ),
     ]
             
-def _do_cleanup(conn, cursor) -> None:
+def _do_guest_cleanup(conn, cursor) -> None:
     cutoff = datetime.now(timezone.utc) - timedelta(days=INACTIVE_DAYS)
     
-    logger.debug(f"Start cleanup", extra={"cutoff": cutoff.isoformat(), "max_delete": MAX_DELETE_PER_RUN})
+    logger.debug(f"Start inactive guest cleanup", extra={"cutoff": cutoff.isoformat(), "max_delete": MAX_DELETE_PER_RUN})
     
     cursor.execute("SELECT user_id FROM users WHERE is_guest = TRUE AND last_active_at < %s LIMIT %s;",(cutoff, MAX_DELETE_PER_RUN))
     rows = cursor.fetchall()
@@ -128,8 +128,8 @@ def _do_cleanup(conn, cursor) -> None:
             failed_users += 1
             logger.error("Failed to delete user during cleanup", extra={"user_id": user_id, "error": str(e)})
     
-    logger.debug("Cleanup complete", extra={"deleted_users": deleted_users, "failed_users": failed_users, "total_files_deleted": total_files_deleted})
-    
+    logger.debug("Inactive guest cleanup complete", extra={"deleted_users": deleted_users, "failed_users": failed_users, "total_files_deleted": total_files_deleted})
+
 def _delete_user(conn, cursor, user_id: str) -> int:
     files_to_delete = _collect_user_files(cursor, user_id)
     
