@@ -76,6 +76,23 @@ def run_temp_cleanup() -> None:
             logger.error(f"Failed to delete temporary file {entry.name}: {e}")
     
     logger.debug("Temporary file cleanup complete", extra={"deleted": deleted, "skipped": skipped, "failed": failed})
+    
+def create_cleanup_jobs() -> list[JobSpec]:
+    """Define all cleanup-related scheduled jobs."""
+    return [
+        JobSpec(
+            func=run_guest_cleanup,
+            trigger=CronTrigger(hour=3, minute=0),
+            job_id="cleanup_inactive_guests",
+            name="Cleanup inactive guest accounts",
+        ),
+        JobSpec(
+            func=run_temp_cleanup,
+            trigger=CronTrigger(hour="*/6", minute=15),
+            job_id="cleanup_temp_files",
+            name="Cleanup orphaned temp files",
+        ),
+    ]
             
 def _do_cleanup(conn, cursor) -> None:
     cutoff = datetime.now(timezone.utc) - timedelta(days=INACTIVE_DAYS)
