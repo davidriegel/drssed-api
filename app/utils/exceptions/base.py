@@ -18,6 +18,10 @@ class PermissionError(Exception):
 class UnauthorizedError(Exception):
     def __init__(self, message="Invalid credentials"):
         super().__init__(message)
+        
+class UnprocessableEntityError(Exception):
+    def __init__(self, message="Unprocessable request") -> None:
+        super().__init__(message)
 
 # Clothing
 
