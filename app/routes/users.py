@@ -139,8 +139,16 @@ def get_clothing_list(user_id: str):
     limit = request.args.get("limit", 50, type=int)
     offset = request.args.get("offset", 0, type=int)
     category = request.args.get("category", None, type=str)
+    
+    typed_category: ClothingCategory | None = None
+    
+    if category:
+        if not category in ClothingCategory.__members__:
+            raise ValidationError
+        
+        typed_category = ClothingCategory[category]
 
-    clothing_list = clothing_manager.get_list_of_clothing_by_user_id(user_id, category, limit, offset)
+    clothing_list = clothing_manager.get_list_of_clothing_by_user_id(user_id, category=typed_category, limit=limit, offset=offset)
 
     return jsonify({"limit": limit, "offset": offset, "clothing": [clothing.to_dict() for clothing in clothing_list]}), 200
 
@@ -152,7 +160,15 @@ def get_clothing_list_private():
     offset = request.args.get("offset", 0, type=int)
     category = request.args.get("category", None, type=str)
     
-    clothing_list = clothing_manager.get_list_of_clothing_by_user_id(g.user_id, category, limit, offset, include_private=True)
+    typed_category: ClothingCategory | None = None
+    
+    if category:
+        if not category in ClothingCategory.__members__:
+            raise ValidationError
+        
+        typed_category = ClothingCategory[category]
+
+    clothing_list = clothing_manager.get_list_of_clothing_by_user_id(g.user_id, category=typed_category, limit=limit, offset=offset, only_public=False)
     
     return jsonify({"limit": limit, "offset": offset, "clothing": [clothing.to_dict() for clothing in clothing_list]}), 200
     

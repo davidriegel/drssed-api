@@ -5,7 +5,7 @@ import uuid
 from re import match as re_match
 from datetime import datetime, timezone
 from app.core.database import Database
-from app.utils.exceptions import ValidationError, ConflictError, ClothingNotFoundError, ClothingImageInvalidError, ClothingNameMissingError, ClothingCategoryMissingError, ClothingColorMissingError, ClothingImageMissingError, ClothingNameTooShortError, ClothingNameTooLongError, ClothingDescriptionTooLongError, ClothingIDMissingError, SeasonsInvalidError, ClothingTagsInvalidError, ClothingValidationError
+from app.utils.exceptions import ValidationError, ConflictError, NotFoundError, ClothingNotFoundError, ClothingImageInvalidError, ClothingNameMissingError, ClothingCategoryMissingError, ClothingColorMissingError, ClothingImageMissingError, ClothingNameTooShortError, ClothingNameTooLongError, ClothingDescriptionTooLongError, ClothingIDMissingError, SeasonsInvalidError, ClothingTagsInvalidError, ClothingValidationError
 from typing import Optional, cast
 from mysql.connector.errors import IntegrityError
 from app.models.clothing import Clothing, ClothingCategory, ClothingSubCategory, ClothingTags
@@ -154,59 +154,101 @@ class ClothingManager:
         
         return clothing
 
-    def get_list_of_clothing_by_user_id(self, user_id: Optional[str], category: Optional[str], limit: int = 50, offset: int = 0, include_private: bool = False) -> list[Clothing]:
-        if not isinstance(user_id, str) or not user_id.strip():
-            raise ClothingIDMissingError("The provided user ID is missing or invalid.")
-
+    def get_list_of_clothing_by_user_id(self, user_id: str, category: Optional[ClothingCategory] = None, seasons: Optional[list[Season]] = None, tags: Optional[list[ClothingTags]] = None, limit: int = 50, offset: int = 0, only_public: bool = True) -> list[Clothing]:
         clothes_list: list[Clothing] = []
         
-        conditions: list[str] = ["user_id = %s"]
-        params: list = [user_id]
-        
-        if not include_private:
-            conditions.append("is_public = %s")
-            params.append(True)
+        where_clauses: list[str] = ["c.user_id = %s", "deleted_at IS NULL", "is_public = %s"]
+        params: list[str | bool | int] = [user_id, only_public]
             
-        if isinstance(category, str):
-            if category.upper() not in ClothingCategory.__members__:
-                raise ClothingCategoryMissingError("The provided category is not valid. It should be one of the following: " + ", ".join(ClothingCategory.__members__.keys()))
-            
-            conditions.append("category = %s")
+        if category:
+            where_clauses.append("category = %s")
             params.append(category)
+        
+        if seasons:
+            placeholder = ', '.join(["%s"] * len(seasons))
+            where_clauses.append(f"EXISTS (SELECT 1 FROM clothing_seasons cs WHERE cs.clothing_id = c.clothing_id AND cs.season IN ({placeholder}))")
+            params.extend(seasons)
             
-        where_clause = " AND ".join(conditions)
-            
-        statement = f"""
-            SELECT *
-            FROM clothing
-            WHERE {where_clause} AND deleted_at IS NULL
-            ORDER BY created_at DESC
-            LIMIT %s
-            OFFSET %s;
-        """
+        if tags:
+            placeholder = ', '.join(["%s"] * len(tags))
+            where_clauses.append(f"EXISTS (SELECT 1 FROM clothing_tags ct WHERE ct.clothing_id = c.clothing_id AND ct.tag IN ({placeholder}))")
+            params.extend(tags)
         
         params.extend([limit, offset])
         
-        try:
-            with Database.getConnection() as conn:
-                cursor = conn.cursor(dictionary=True)
-                cursor.execute(statement, tuple(params))
-                clothes = cursor.fetchall()
-
-                for clothing in clothes:
-                    clothing_id = clothing.get("clothing_id")
-                    cursor.execute("SELECT season FROM clothing_seasons WHERE clothing_id = %s;", (clothing_id,))
-                    seasons = cursor.fetchall()
+        with Database.getConnection() as conn:
+            cursor = conn.cursor(dictionary=True)
+            query = f"SELECT c.* FROM clothing c WHERE { ' AND '.join(where_clauses)} ORDER BY c.created_at DESC LIMIT %s OFFSET %s;"
+            cursor.execute(query, tuple(params))
+            clothes = cursor.fetchall()
+            
+            if not clothes:
+                return []
+            
+            clothing_ids: list[str] = []
+            for clothing_dict in clothes:
+                if not isinstance(clothing_dict, dict):
+                    raise ValueError("Expected clothing_dict to be dict")
                 
-                    cursor.execute("SELECT tag FROM clothing_tags WHERE clothing_id = %s;", (clothing_id,))
-                    tags = cursor.fetchall()
+                clothing_id = clothing_dict.get("clothing_id")
+                
+                if not isinstance(clothing_id, str):
+                    raise ValueError("Expected clothing_id to be string")
+                
+                clothing_ids.append(clothing_id)
 
-                    clothing = Clothing.from_dict(clothing, [Season[season.get("season")] for season in seasons], [ClothingTags[tag.get("tag")] for tag in tags])
-                    clothes_list.append(clothing)
-        except Exception as e:
-            logger.error(f"An unexpected error occurred while retrieving clothes for user {user_id}: {e}")
-            logger.error(f"{traceback.format_exc()}")
-            raise e
+            seasons_by_clothing: dict[str, list[Season]] = {}
+            placeholder = ', '.join(["%s"]  * len(clothing_ids))
+            cursor.execute(f"SELECT clothing_id, season FROM clothing_seasons WHERE clothing_id IN ({placeholder})", tuple(clothing_ids))
+            clothing_seasons = cursor.fetchall()
+            
+            if not clothing_seasons:
+                raise ValueError("Expected clothing_seasons to not be empty")
+            
+            for seasons_dict in clothing_seasons:
+                if not isinstance(seasons_dict, dict):
+                    raise ValueError("Expected seasons_dict to be dict")
+                
+                clothing_id = seasons_dict.get("clothing_id")
+                clothing_season = seasons_dict.get("season")
+                
+                if not isinstance(clothing_id, str):
+                    raise ValueError("Expected clothing_id to be string")
+                
+                if not isinstance(clothing_season, str):
+                    raise ValueError("Expected clothing_season to be string")
+                
+                seasons_by_clothing.setdefault(clothing_id, []).append(Season[clothing_season])
+                
+            tags_by_clothing: dict[str, list[ClothingTags]] = {}
+            placeholder = ', '.join(["%s"]  * len(clothing_ids))
+            cursor.execute(f"SELECT clothing_id, tag FROM clothing_tags WHERE clothing_id IN ({placeholder})", tuple(clothing_ids))
+            clothing_tags = cursor.fetchall()
+            
+            if not clothing_tags:
+                raise ValueError("Expected clothing_tags to not be empty")
+            
+            for tags_dict in clothing_tags:
+                if not isinstance(tags_dict, dict):
+                    raise ValueError("Expected tags_dict to be dict")
+                
+                clothing_id = tags_dict.get("clothing_id")
+                clothing_tag = tags_dict.get("tag")
+                
+                if not isinstance(clothing_id, str):
+                    raise ValueError("Expected clothing_id to be string")
+                
+                if not isinstance(clothing_tag, str):
+                    raise ValueError("Expected clothing_tag to be string")
+                
+                tags_by_clothing.setdefault(clothing_id, []).append(ClothingTags[clothing_tag])
+                
+            for clothing_id, clothing_dict in zip(clothing_ids, clothes):
+                if not isinstance(clothing_dict, dict):
+                    raise ValueError("Expected clothing_dict to be dict")
+                
+                clothing = Clothing.from_dict(clothing_dict, seasons=seasons_by_clothing[clothing_id], tags=tags_by_clothing[clothing_id])
+                clothes_list.append(clothing)
         
         return clothes_list
     
