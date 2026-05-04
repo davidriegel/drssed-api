@@ -2,13 +2,12 @@ __all__ = ["outfit_manager"]
 
 import traceback
 import uuid
-import threading
 from datetime import datetime, timezone
 from app.core.database import Database
-from app.utils.exceptions import OutfitNotFoundError, OutfitNameTooShortError, OutfitNameTooLongError, OutfitDescriptionTooLongError, OutfitNameMissingError, OutfitClothingIDsMissingError, OutfitClothingIDInvalidError, OutfitSeasonsInvalidError, OutfitTagsInvalidError, OutfitIDMissingError, OutfitPermissionError, OutfitLimitInvalidError, OutfitOffsetInvalidError, OutfitValidationError, OutfitPublicMissingError, OutfitFavoriteMissingError, OutfitSceneMissingError, OutfitSceneInvalidError
+from app.utils.exceptions import OutfitNotFoundError, OutfitNameTooShortError, OutfitNameTooLongError, OutfitDescriptionTooLongError, OutfitNameMissingError, OutfitClothingIDsMissingError, OutfitClothingIDInvalidError, SeasonsInvalidError, OutfitTagsInvalidError, OutfitIDMissingError, OutfitPermissionError, OutfitLimitInvalidError, OutfitOffsetInvalidError, OutfitValidationError, OutfitPublicMissingError, OutfitFavoriteMissingError, OutfitSceneMissingError, OutfitSceneInvalidError
 from typing import Optional, cast
-from mysql.connector.errors import IntegrityError
-from app.models.outfit import Outfit, OutfitTags, OutfitSeason, CanvasPlacement
+from app.models.outfit import Outfit, OutfitTags, CanvasPlacement
+from app.models.season import Season
 from app.utils.helpers import helper
 from app.services.clothing import clothing_manager
 from app.services.image import image_manager
@@ -60,7 +59,7 @@ class OutfitManager:
                     ]
                     
                     seasons_list = [
-                        OutfitSeason[helper.ensure_dict(season).get("season", "")]
+                        Season[helper.ensure_dict(season).get("season", "")]
                         for season in seasons
                     ]
 
@@ -110,13 +109,13 @@ class OutfitManager:
 
         if seasons is not None:
             if not isinstance(seasons, list) or not all(isinstance(season, str) for season in seasons):
-                raise OutfitSeasonsInvalidError("Seasons must be a list of strings.")
+                raise SeasonsInvalidError("Seasons must be a list of strings.")
             
             for season in seasons:
-                if season.strip().upper() not in OutfitSeason.__members__:
-                    raise OutfitSeasonsInvalidError(f"The provided season ({season}) is not valid.")
+                if season.strip().upper() not in Season.__members__:
+                    raise SeasonsInvalidError(f"The provided season ({season}) is not valid.")
 
-            seasons = [OutfitSeason[season.strip().upper()] for season in seasons]
+            seasons = [Season[season.strip().upper()] for season in seasons]
 
         if tags is not None:
             if not isinstance(tags, list) or not all(isinstance(tag, str) for tag in tags):
@@ -244,7 +243,7 @@ class OutfitManager:
                 outfit_is_public, outfit_is_favorite, outfit_name, outfit_created_at, outfit_description, outfit_updated_at = outfit
                     
                 cursor.execute("SELECT season FROM outfit_seasons WHERE outfit_id = %s;", (outfit_id,))
-                seasons = [OutfitSeason[cast(str, season)] for (season,) in cursor.fetchall()]
+                seasons = [Season[cast(str, season)] for (season,) in cursor.fetchall()]
                     
                 cursor.execute("SELECT tag FROM outfit_tags WHERE outfit_id = %s;", (outfit_id,))
                 tags = [OutfitTags[cast(str, tag)] for (tag,) in cursor.fetchall()]
@@ -322,7 +321,7 @@ class OutfitManager:
                     tags = cursor.fetchall()
 
                     seasons_list = [
-                        OutfitSeason[helper.ensure_dict(season).get("season", "")]
+                        Season[helper.ensure_dict(season).get("season", "")]
                         for season in seasons
                     ]
 
@@ -452,8 +451,8 @@ class OutfitManager:
         new_seasons_set = {season.strip().upper() for season in new_seasons}
         
         for season in new_seasons_set:
-            if season not in OutfitSeason.__members__:
-                raise OutfitSeasonsInvalidError(f"Invalid season: {season}")
+            if season not in Season.__members__:
+                raise SeasonsInvalidError(f"Invalid season: {season}")
             
         seasons_to_add = new_seasons_set - existing_seasons
         seasons_to_remove = existing_seasons - new_seasons_set

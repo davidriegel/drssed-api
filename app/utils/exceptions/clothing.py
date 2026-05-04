@@ -36,7 +36,7 @@ class ClothingImageInvalidError(ClothingConflictError):
     def __init__(self, message="Clothing image is invalid"):
         super().__init__(message)
 
-class ClothingSeasonsInvalidError(ClothingValidationError):
+class SeasonsInvalidError(ClothingValidationError):
     def __init__(self, message="Clothing seasons are invalid"):
         super().__init__(message)
 

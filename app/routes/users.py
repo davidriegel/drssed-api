@@ -3,7 +3,8 @@ from flask import Blueprint, request, jsonify, g
 from ..services.user import user_manager
 from app.services.outfit import outfit_manager
 from app.services.clothing import clothing_manager
-from app.models.clothing import ClothingSeason, ClothingTags, ClothingCategory, ClothingSubCategory
+from app.models.clothing import ClothingTags, ClothingCategory, ClothingSubCategory
+from app.models.season import Season
 from ..utils.exceptions import ValidationError, ConflictError
 from ..core.limiter import limiter
 from ..utils.helpers import helper
@@ -187,10 +188,10 @@ def create_clothing_piece():
     typed_sub_category = ClothingSubCategory[sub_category.upper()]
     
     for season in seasons:
-        if str(season).upper() not in ClothingSeason.__members__:
+        if str(season).upper() not in Season.__members__:
             raise ValidationError
         
-    typed_seasons = [ClothingSeason[season.upper()] for season in seasons]
+    typed_seasons = [Season[season.upper()] for season in seasons]
 
     for tag in tags:
         if str(tag).upper() not in ClothingTags.__members__:

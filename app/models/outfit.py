@@ -1,6 +1,7 @@
 from enum import Enum
 from datetime import datetime, timezone
 from typing import Optional
+from app.models.season import Season
 from dataclasses import dataclass, asdict
 
 class OutfitTags(str, Enum):
@@ -8,16 +9,6 @@ class OutfitTags(str, Enum):
     FORMAL = "Formal"
     SPORTS = "Sports"
     VINTAGE = "Vintage"
-    OUTDOOR = "Outdoor"
-    PARTY = "Party"
-    WORK = "Work"
-    BEACH = "Beach"
-
-class OutfitSeason(str, Enum):
-    SPRING = "Spring"
-    SUMMER = "Summer"
-    AUTUMN = "Autumn"
-    WINTER = "Winter"
 
 @dataclass
 class CanvasPlacement:
@@ -38,7 +29,7 @@ class Outfit:
     updated_at: datetime
     user_id: str
     scene: Optional[list[CanvasPlacement]] = None
-    seasons: Optional[list[OutfitSeason]] = None
+    seasons: Optional[list[Season]] = None
     tags: Optional[list[OutfitTags]] = None
     description: Optional[str] = None
         
@@ -53,7 +44,7 @@ class Outfit:
         return data
     
     @classmethod
-    def from_dict(cls, core: dict, scene: Optional[list[CanvasPlacement]], seasons: Optional[list[OutfitSeason]], tags: Optional[list[OutfitTags]]):
+    def from_dict(cls, core: dict, scene: Optional[list[CanvasPlacement]], seasons: Optional[list[Season]], tags: Optional[list[OutfitTags]]):
         return Outfit(
             outfit_id=core.get("outfit_id"),
             is_public=bool(core.get("is_public")),

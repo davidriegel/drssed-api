@@ -5,10 +5,11 @@ import uuid
 from re import match as re_match
 from datetime import datetime, timezone
 from app.core.database import Database
-from app.utils.exceptions import ValidationError, ConflictError, ClothingNotFoundError, ClothingImageInvalidError, ClothingNameMissingError, ClothingCategoryMissingError, ClothingColorMissingError, ClothingImageMissingError, ClothingNameTooShortError, ClothingNameTooLongError, ClothingDescriptionTooLongError, ClothingIDMissingError, ClothingSeasonsInvalidError, ClothingTagsInvalidError, ClothingValidationError
+from app.utils.exceptions import ValidationError, ConflictError, ClothingNotFoundError, ClothingImageInvalidError, ClothingNameMissingError, ClothingCategoryMissingError, ClothingColorMissingError, ClothingImageMissingError, ClothingNameTooShortError, ClothingNameTooLongError, ClothingDescriptionTooLongError, ClothingIDMissingError, SeasonsInvalidError, ClothingTagsInvalidError, ClothingValidationError
 from typing import Optional, cast
 from mysql.connector.errors import IntegrityError
-from app.models.clothing import Clothing, ClothingCategory, ClothingSubCategory, ClothingSeason, ClothingTags
+from app.models.clothing import Clothing, ClothingCategory, ClothingSubCategory, ClothingTags
+from app.models.season import Season
 from app.core.logging import get_logger
 from app.utils.helpers import helper
 from app.services.image import image_manager
@@ -46,7 +47,7 @@ class ClothingManager:
                     tags = cursor.fetchall()
                     
                     seasons_list = [
-                        ClothingSeason[helper.ensure_dict(season).get("season", "")]
+                        Season[helper.ensure_dict(season).get("season", "")]
                         for season in seasons
                     ]
 
@@ -83,7 +84,7 @@ class ClothingManager:
 
         return updated_clothes, deleted_ids
 
-    def create_clothing(self, user_id: str, name: str, category: ClothingCategory, sub_category: ClothingSubCategory, image_id: str, color: str, seasons: list[ClothingSeason], tags: list[ClothingTags], description: Optional[str] = None) -> Clothing:
+    def create_clothing(self, user_id: str, name: str, category: ClothingCategory, sub_category: ClothingSubCategory, image_id: str, color: str, seasons: list[Season], tags: list[ClothingTags], description: Optional[str] = None) -> Clothing:
         color_regex = r"^#([A-Fa-f0-9]{6})$"
         if isinstance(color, str) and not re_match(color_regex, color):
             raise ValidationError
@@ -143,7 +144,7 @@ class ClothingManager:
                 cursor.execute("SELECT tag FROM clothing_tags WHERE clothing_id = %s;", (clothing_id,))
                 tags = cursor.fetchall()
                 
-                clothing = Clothing.from_dict(clothing, [ClothingSeason[season.get("season")] for season in seasons], [ClothingTags[tag.get("tag")] for tag in tags])
+                clothing = Clothing.from_dict(clothing, [Season[season.get("season")] for season in seasons], [ClothingTags[tag.get("tag")] for tag in tags])
         except ClothingNotFoundError as e:
             raise e
         except Exception as e:
@@ -200,7 +201,7 @@ class ClothingManager:
                     cursor.execute("SELECT tag FROM clothing_tags WHERE clothing_id = %s;", (clothing_id,))
                     tags = cursor.fetchall()
 
-                    clothing = Clothing.from_dict(clothing, [ClothingSeason[season.get("season")] for season in seasons], [ClothingTags[tag.get("tag")] for tag in tags])
+                    clothing = Clothing.from_dict(clothing, [Season[season.get("season")] for season in seasons], [ClothingTags[tag.get("tag")] for tag in tags])
                     clothes_list.append(clothing)
         except Exception as e:
             logger.error(f"An unexpected error occurred while retrieving clothes for user {user_id}: {e}")
@@ -280,8 +281,8 @@ class ClothingManager:
 
                     if new_seasons:
                         for season in new_seasons:
-                            if season.strip().upper() not in ClothingSeason.__members__:
-                                raise ClothingSeasonsInvalidError(f"The provided season ({season}) is not valid.")
+                            if season.strip().upper() not in Season.__members__:
+                                raise SeasonsInvalidError(f"The provided season ({season}) is not valid.")
 
                             cursor.execute("INSERT INTO clothing_seasons(clothing_id, season) VALUES (%s, %s);", (clothing_id, season.strip().upper()))
 
