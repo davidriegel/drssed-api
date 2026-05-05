@@ -5,10 +5,10 @@ from app.models.season import Season
 from dataclasses import dataclass, asdict
 
 class OutfitTags(str, Enum):
-    CASUAL = "Casual"
-    FORMAL = "Formal"
-    SPORTS = "Sports"
-    VINTAGE = "Vintage"
+    CASUAL = "CASUAL"
+    FORMAL = "FORMAL"
+    SPORTS = "SPORTS"
+    VINTAGE = "VINTAGE"
 
 @dataclass
 class CanvasPlacement:
