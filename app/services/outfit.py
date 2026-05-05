@@ -2,11 +2,15 @@ __all__ = ["outfit_manager"]
 
 import traceback
 import uuid
+from random import choice, random
 from datetime import datetime, timezone
 from app.core.database import Database
 from app.utils.exceptions import OutfitNotFoundError, OutfitNameTooShortError, OutfitNameTooLongError, OutfitDescriptionTooLongError, OutfitNameMissingError, OutfitClothingIDsMissingError, OutfitClothingIDInvalidError, SeasonsInvalidError, OutfitTagsInvalidError, OutfitIDMissingError, OutfitPermissionError, OutfitLimitInvalidError, OutfitOffsetInvalidError, OutfitValidationError, OutfitPublicMissingError, OutfitFavoriteMissingError, OutfitSceneMissingError, OutfitSceneInvalidError
+from app.utils.exceptions import UnprocessableEntityError
 from typing import Optional, cast
+from app.services.clothing import clothing_manager
 from app.models.outfit import Outfit, OutfitTags, CanvasPlacement
+from app.models.clothing import Clothing, ClothingTags, ClothingCategory
 from app.models.season import Season
 from app.utils.helpers import helper
 from app.services.clothing import clothing_manager
@@ -16,6 +20,82 @@ from app.core.logging import get_logger
 logger = get_logger()
 
 class OutfitManager:
+    def generate_outfit(self, user_id: str, seasons: Optional[list[Season]] = None, tags: Optional[list[OutfitTags]] = None, anchor: Optional[list[str]] = None, amount: int = 3) -> list[Outfit]:
+        """
+        Generate new outfit options, optionally based on season, tags or anchor clothing items.
+        """
+        clothing_tags = [ClothingTags[t.name] for t in tags] if tags else None
+        
+        suitable_clothes: list[Clothing] = clothing_manager.get_list_of_clothing_by_user_id(user_id, seasons=seasons, tags=clothing_tags, limit=1000, only_public=False) # high limit, outfit generation needs full filtered pool
+        
+        if not suitable_clothes:
+            raise UnprocessableEntityError
+        
+        items_by_category: dict[ClothingCategory, list[Clothing]] = {}
+        for clothing in suitable_clothes:
+            items_by_category.setdefault(clothing.category, []).append(clothing)
+        
+        jackets = items_by_category.get(ClothingCategory.JACKET, [])
+        tops = items_by_category.get(ClothingCategory.TOP, [])
+        bottoms = items_by_category.get(ClothingCategory.BOTTOM, [])
+        one_pieces = items_by_category.get(ClothingCategory.ONE_PIECE, [])
+        
+        can_build_default = bool(tops) and bool(bottoms)
+        can_build_one_pice = bool(one_pieces)
+        
+        if not can_build_default and not can_build_one_pice:
+            raise UnprocessableEntityError
+        
+        outfits: list[Outfit] = []
+        for _ in range(amount):
+            if can_build_default and can_build_one_pice:
+                use_one_piece = choice([True, False])
+            else:
+                use_one_piece = can_build_one_pice
+                
+            chosen_items: list[Clothing] = []
+            if use_one_piece:
+                chosen_items.append(choice(one_pieces))
+            else:
+                chosen_items.append(choice(tops))
+                chosen_items.append(choice(bottoms))
+                
+            if jackets and random() < 0.5:
+                chosen_items.append(choice(jackets))
+                
+            scene = self._build_default_scene(chosen_items)
+            
+            outfit = Outfit(
+                outfit_id=str(uuid.uuid4()),
+                is_public=False,
+                is_favorite=False,
+                name="",
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+                user_id=user_id,
+                scene=scene,
+                seasons=seasons or [season for season in Season],
+                tags=tags or [tag for tag in OutfitTags]
+            )
+            outfits.append(outfit)
+        
+        return outfits
+    
+    def _build_default_scene(self, items: list[Clothing]) -> list[CanvasPlacement]:
+        DEFAULT_POSITIONS = {
+            ClothingCategory.JACKET: (0.5, 0, 4),
+            ClothingCategory.TOP: (0.5, 0.4, 3),
+            ClothingCategory.BOTTOM: (0.5, 0.6, 2),
+            ClothingCategory.ONE_PIECE: (0.5, 0.5, 1),
+        }
+        
+        placements: list[CanvasPlacement] = []
+        for clothing in items:
+            x, y, z = DEFAULT_POSITIONS[clothing.category]
+            placements.append(CanvasPlacement(clothing.clothing_id, x, y, z, 1, 0))
+            
+        return placements
+    
     def sync_outfits(self, user_id: str, updated_since: datetime) -> tuple[list[Outfit], list[str]]:
         updated_outfits: list[Outfit] = []
         deleted_ids: list[str] = []
