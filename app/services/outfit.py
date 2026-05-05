@@ -83,16 +83,16 @@ class OutfitManager:
     
     def _build_default_scene(self, items: list[Clothing]) -> list[CanvasPlacement]:
         DEFAULT_POSITIONS = {
-            ClothingCategory.JACKET: (0.5, 0, 4),
+            ClothingCategory.JACKET: (0.5, 0.2, 4),
             ClothingCategory.TOP: (0.5, 0.4, 3),
-            ClothingCategory.BOTTOM: (0.5, 0.6, 2),
+            ClothingCategory.BOTTOM: (0.5, 0.7, 2),
             ClothingCategory.ONE_PIECE: (0.5, 0.5, 1),
         }
         
         placements: list[CanvasPlacement] = []
         for clothing in items:
             x, y, z = DEFAULT_POSITIONS[clothing.category]
-            placements.append(CanvasPlacement(clothing.clothing_id, x, y, z, 1, 0))
+            placements.append(CanvasPlacement(clothing.clothing_id, x, y, z, 0.25, 0))
             
         return placements
     
