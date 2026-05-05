@@ -28,9 +28,9 @@ class Outfit:
     created_at: datetime
     updated_at: datetime
     user_id: str
-    scene: Optional[list[CanvasPlacement]] = None
-    seasons: Optional[list[Season]] = None
-    tags: Optional[list[OutfitTags]] = None
+    scene: list[CanvasPlacement]
+    seasons: list[Season]
+    tags: list[OutfitTags]
     description: Optional[str] = None
         
     def to_dict(self) -> dict:
@@ -44,7 +44,7 @@ class Outfit:
         return data
     
     @classmethod
-    def from_dict(cls, core: dict, scene: Optional[list[CanvasPlacement]], seasons: Optional[list[Season]], tags: Optional[list[OutfitTags]]):
+    def from_dict(cls, core: dict, scene: list[CanvasPlacement], seasons: list[Season], tags: list[OutfitTags]):
         return Outfit(
             outfit_id=core.get("outfit_id"),
             is_public=bool(core.get("is_public")),
