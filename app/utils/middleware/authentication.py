@@ -6,6 +6,7 @@ from app.utils.exceptions import UnauthorizedError
 from functools import wraps
 
 def authorize_request(f):
+    """Authorizes Bearer Token and sets g.user_id, g.is_guest to requesting users account status"""
     @wraps(f)
     def wrapper(*args, **kwargs):
         token = request.headers.get("Authorization")
