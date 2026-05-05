@@ -157,8 +157,12 @@ class ClothingManager:
     def get_list_of_clothing_by_user_id(self, user_id: str, category: Optional[ClothingCategory] = None, seasons: Optional[list[Season]] = None, tags: Optional[list[ClothingTags]] = None, limit: int = 50, offset: int = 0, only_public: bool = True) -> list[Clothing]:
         clothes_list: list[Clothing] = []
         
-        where_clauses: list[str] = ["c.user_id = %s", "deleted_at IS NULL", "is_public = %s"]
-        params: list[str | bool | int] = [user_id, only_public]
+        where_clauses: list[str] = ["c.user_id = %s", "deleted_at IS NULL"]
+        params: list[str | bool | int] = [user_id]
+        
+        if only_public:
+            where_clauses.append("is_public = %s")
+            params.append(True)
             
         if category:
             where_clauses.append("category = %s")
