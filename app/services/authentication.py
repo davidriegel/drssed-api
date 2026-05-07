@@ -4,11 +4,13 @@ import secrets
 import uuid
 import jwt
 from os import getenv
+from urllib.parse import urljoin
 from typing import Optional
 from datetime import datetime, timedelta, timezone
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from app.core.database import Database
+from app.core.email import send_verification_email
 from app.models.token import Token
 from app.utils.exceptions import UnauthorizedError
 from app.core.logging import get_logger
@@ -25,6 +27,37 @@ REFRESH_TOKEN_LENGTH = 16
 logger = get_logger()
 
 class AuthenticationManager:
+    def create_email_verification(self, user_id: str, preferred_language: str):
+        with Database.getConnection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT email, email_verified_at FROM users WHERE user_id = %s", (user_id, ))
+            result = cursor.fetchone()
+            
+            if not result:
+                logger.warning(f"Email verification requested for non-existent user {user_id}")
+                return
+            
+            user_email, user_email_verified = result
+            
+            if user_email_verified:
+                return
+            
+            if not isinstance(user_email, str):
+                raise ValueError("expected user_email to be a string")
+            
+            cursor.execute("UPDATE email_verifications SET expires_at = %s WHERE user_id = %s", (datetime.now(timezone.utc), user_id,))
+            
+            token = secrets.token_urlsafe(24)
+            expiry_hours = 24
+            expires_at = datetime.now(timezone.utc) + timedelta(hours=expiry_hours)
+            cursor.execute("INSERT INTO email_verifications(token, user_id, email, expires_at) VALUES(%s, %s, %s, %s)", (token, user_id, user_email, expires_at))
+            conn.commit()
+            
+            public_url = str(urljoin(getenv("API_BASE_URL", ""), f"/auth/email/verify?token={token}"))
+            
+            send_verification_email(user_email, preferred_language, public_url, expiry_hours)
+        return
+    
     def refresh_access_token(self, refresh_token: str) -> Token:
         """
         :params refresh_token str:
