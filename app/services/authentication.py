@@ -95,11 +95,11 @@ class AuthenticationManager:
 
             conn.commit()
         
-    def register_guest(self) -> Token:
+    def register_guest(self, preferred_language: str = "en") -> Token:
         """
         :returns Token: A new access token, its expiry in seconds, and a new refresh token
         """
-        user_id = self._add_user_to_database()
+        user_id = self._add_user_to_database(preferred_language=preferred_language)
         
         return self._generate_token_pair(user_id, is_guest=True)
         
@@ -175,12 +175,12 @@ class AuthenticationManager:
 
         return Token(access_token=access_token, expires_in=ACCESS_TOKEN_EXPIRY_HOURS * 60 * 60, refresh_token=refresh_token)
         
-    def _add_user_to_database(self, is_guest: bool = True, email: Optional[str] = None, username: Optional[str] = None, password: Optional[str] = None, profilePicture: Optional[str] = None) -> str:
+    def _add_user_to_database(self, is_guest: bool = True, email: Optional[str] = None, username: Optional[str] = None, password: Optional[str] = None, profilePicture: Optional[str] = None, preferred_language: str = "en") -> str:
         user_id = str(uuid.uuid4())
 
         with Database.getConnection() as conn:
             cursor = conn.cursor()
-            cursor.execute("INSERT INTO users(user_id, is_guest, email, username, password, profile_picture) VALUES (%s, %s, %s, %s, %s, %s);", (user_id, is_guest, email, username, password, profilePicture))
+            cursor.execute("INSERT INTO users(user_id, is_guest, email, username, password, profile_picture, preferred_language) VALUES (%s, %s, %s, %s, %s, %s, %s);", (user_id, is_guest, email, username, password, profilePicture, preferred_language))
             conn.commit()
             
         return user_id

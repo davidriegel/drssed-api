@@ -9,9 +9,9 @@ auth = Blueprint("auth", __name__)
 
 
 @auth.route('/guest', methods=['POST'])
-@limiter.limit('5 per hour')
+@limiter.limit('1 per hour')
 def register_guest():
-    token = authentication_manager.register_guest()
+    token = authentication_manager.register_guest(preferred_language=g.preferred_language)
     g.user_id = authentication_manager.get_user_id_from_token(token.access_token)
 
     return jsonify(token.to_dict()), 201

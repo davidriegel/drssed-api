@@ -9,6 +9,7 @@ from app.core.scheduler import init_scheduler, register_job
 from app.core.logging import get_logger, setup_logging
 from app.services.cleanup import create_cleanup_jobs
 from app.utils.middleware.request_logger import init_request_logging
+from app.utils.middleware.extract_language import init_language_extraction
 from app.utils.exceptions import (
     ValidationError,
     NotFoundError,
@@ -40,6 +41,8 @@ def prepare_api():
     init_scheduler(api)
     for job in all_jobs:
         register_job(job)
+        
+    init_language_extraction(api)
 
     prepare_static_directories()
     register_blueprints()
