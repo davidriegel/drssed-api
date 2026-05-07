@@ -520,6 +520,8 @@ class OutfitManager:
             
             clothing_canvas.append(CanvasPlacement(clothing_id=clothing_id, x=item["x"], y=item["y"], z=item["z"], scale=item["scale"], rotation=item["rotation"]))
         
+        image_manager.generate_outfit_preview(outfit_id=outfit_id, items=validated_items)
+        
         cursor.execute("DELETE FROM outfit_clothing WHERE outfit_id = %s;", (outfit_id, ))
         
         for item in clothing_canvas:
