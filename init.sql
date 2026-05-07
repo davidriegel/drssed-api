@@ -20,7 +20,7 @@ CREATE INDEX idx_users_cleanup ON users (is_guest, last_active_at);
 -- Email verification tokens
 CREATE TABLE
     IF NOT EXISTS email_verifications (
-        token VARCHAR(24) PRIMARY KEY,
+        token VARCHAR(43) PRIMARY KEY,
         user_id VARCHAR(36) NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
         expires_at TIMESTAMP NOT NULL,
