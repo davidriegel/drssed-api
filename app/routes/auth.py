@@ -7,6 +7,12 @@ from app.utils.exceptions import ValidationError
 
 auth = Blueprint("auth", __name__)
 
+@auth.route('/email/send-verification', methods=['POST'])
+@authorize_request
+@limiter.limit("3 per hour", key_func=lambda: str(g.user_id))
+def email_verification():
+    authentication_manager.create_email_verification(g.user_id, g.preferred_language)
+    return {}, 200
 
 @auth.route('/guest', methods=['POST'])
 @limiter.limit('1 per hour')
