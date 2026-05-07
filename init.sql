@@ -11,7 +11,8 @@ CREATE TABLE
         profile_picture VARCHAR(255) DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        preferred_language CHAR(2) NOT NULL DEFAULT 'en'
     );
 
 CREATE INDEX idx_users_cleanup ON users (is_guest, last_active_at);
