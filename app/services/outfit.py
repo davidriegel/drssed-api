@@ -538,7 +538,8 @@ class OutfitManager:
         seasons_to_remove = existing_seasons - new_seasons_set
         
         if seasons_to_remove:
-            cursor.execute("DELETE FROM outfit_seasons WHERE outfit_id = %s AND season IN %s;", (outfit_id, tuple(seasons_to_remove)))
+            placeholder = ', '.join(["%s"] * len(seasons_to_remove))
+            cursor.execute("DELETE FROM outfit_seasons WHERE outfit_id = %s AND season IN (" + placeholder + ")", (outfit_id, *seasons_to_remove))
             
         if seasons_to_add:
             values = [(outfit_id, season) for season in seasons_to_add]
@@ -557,7 +558,8 @@ class OutfitManager:
         tags_to_remove = existing_tags - new_tags_set
         
         if tags_to_remove:
-            cursor.execute("DELETE FROM outfit_tags WHERE outfit_id = %s AND tag IN %s;", (outfit_id, tuple(tags_to_remove)))
+            placeholder = ', '.join(["%s"] * len(tags_to_remove))
+            cursor.execute("DELETE FROM outfit_tags WHERE outfit_id = %s AND tag IN (" + placeholder + ")", (outfit_id, *tags_to_remove))
         
         if tags_to_add:
             values = [(outfit_id, tag) for tag in tags_to_add]
