@@ -27,7 +27,7 @@ from app.routes.clothing import clothing
 from app.routes.images import images
 from app.routes.outfits import outfits
 
-api = Flask("Drssed API", static_folder="app/static", static_url_path="/static")
+api = Flask("Drssed API", static_folder="app/static", static_url_path="/static", template_folder="app/templates")
 
 setup_logging(api)
 logger = get_logger("main")
