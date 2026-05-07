@@ -1,0 +1,14 @@
+Confirm your email address
+
+Verifying your email address helps keep your account secure.
+
+Click the following link to confirm your email address:
+
+{{ verification_link }}
+
+This link is valid for {{ expiry_hours }} hours. If you didn't sign up for Drssed, you can safely ignore this email.
+
+---
+
+© 2026
+If you have any questions, reach us at support@drssed.app
