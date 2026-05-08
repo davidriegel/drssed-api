@@ -55,7 +55,7 @@ class UserManager:
                 if cursor.rowcount == 0:
                     raise NotFoundError
                 
-                cursor.execute("SELECT user_id, is_guest, username, email, created_at, updated_at, profile_picture FROM users WHERE user_id = %s;", (user_id,))
+                cursor.execute("SELECT user_id, is_guest, username, email, email_verified_at, created_at, updated_at, profile_picture FROM users WHERE user_id = %s;", (user_id,))
                 db_user = cursor.fetchone()
 
                 user = User.from_dict(helper.ensure_dict(db_user))
