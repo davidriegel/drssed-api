@@ -29,7 +29,7 @@ def verify_email():
         return render_template(f'/verification/email_verified.{g.preferred_language}.html', status='invalid'), 400
 
 @auth.route('/guest', methods=['POST'])
-@limiter.limit('1 per hour')
+@limiter.limit('10 per hour')
 def register_guest():
     token = authentication_manager.register_guest(preferred_language=g.preferred_language)
     g.user_id = authentication_manager.get_user_id_from_token(token.access_token)
