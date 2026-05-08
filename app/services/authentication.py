@@ -147,6 +147,13 @@ class AuthenticationManager:
             conn.commit()
 
         return Token(access_token=access_token, expires_in=ACCESS_TOKEN_EXPIRY_HOURS * 60 * 60, refresh_token=new_refresh_token)
+    
+    def revoke_all_refresh_tokens(self, user_id: str) -> None:
+        with Database.getConnection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM refresh_tokens WHERE user_id = %s", (user_id, ))
+            
+            conn.commit()
             
     def delete_refresh_token(self, refresh_token: str) -> None:
         """
