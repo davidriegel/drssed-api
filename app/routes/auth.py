@@ -15,7 +15,7 @@ def email_verification():
     return {}, 200
 
 @auth.route('/email/verify', methods=['GET'])
-@limiter.exempt
+@limiter.limit('60 per minute')
 def verify_email():
     token = request.args.get("token")
     
