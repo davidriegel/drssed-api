@@ -239,3 +239,10 @@ def delete_account():
     user_manager.delete_account_by_id(g.user_id, password)
     
     return jsonify({"message": "Account deleted successfully"}), 200
+
+@users.route('/me', methods=['GET'])
+@authorize_request
+@limiter.limit('3 per minute')
+def get_current_user():
+    user = user_manager.get_private_user_profile_by_id(g.user_id)
+    return jsonify({"user": user.to_dict()}), 200

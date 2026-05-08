@@ -90,7 +90,7 @@ class UserManager:
         try:
             with Database.getConnection() as conn:
                 cursor = conn.cursor(dictionary=True)
-                cursor.execute("SELECT user_id, is_guest, created_at, updated_at, username, email, profile_picture FROM users WHERE user_id = %s;", (user_id, ))
+                cursor.execute("SELECT user_id, is_guest, created_at, updated_at, username, email, email_verified_at, profile_picture FROM users WHERE user_id = %s;", (user_id, ))
                 db_user = helper.ensure_dict(cursor.fetchone())
                 
                 user = User.from_dict(db_user)
