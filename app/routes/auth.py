@@ -14,6 +14,17 @@ def email_verification():
     authentication_manager.create_email_verification(g.user_id, g.preferred_language)
     return {}, 200
 
+@auth.route('/email/verify', methods=['GET'])
+@limiter.exempt
+def verify_email():
+    token = request.args.get("token")
+    
+    if not token:
+        raise ValidationError
+    
+    verified_email = authentication_manager.verify_email(token)
+    return {"email": verified_email}, 200
+
 @auth.route('/guest', methods=['POST'])
 @limiter.limit('1 per hour')
 def register_guest():

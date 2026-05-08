@@ -12,7 +12,7 @@ from argon2.exceptions import VerifyMismatchError
 from app.core.database import Database
 from app.core.email import send_verification_email
 from app.models.token import Token
-from app.utils.exceptions import UnauthorizedError
+from app.utils.exceptions import UnauthorizedError, NotFoundError
 from app.core.logging import get_logger
 from app.utils.helpers import ensure_utc
 
@@ -58,6 +58,31 @@ class AuthenticationManager:
             
             send_verification_email(user_email, preferred_language, public_url, expiry_hours)
         return
+    
+    def verify_email(self, token: str) -> str:
+        with Database.getConnection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT user_id, email FROM email_verifications WHERE token = %s AND expires_at > %s", (token, datetime.now(timezone.utc),))
+            verification_result = cursor.fetchone()
+            
+            if not verification_result:
+                raise NotFoundError
+            
+            user_id, email, = verification_result
+            
+            if not isinstance(email, str):
+                raise ValueError("expected email to be a string")
+            
+            if not isinstance(user_id, str):
+                raise ValueError("expected user_id to be a string")
+            
+            cursor.execute("UPDATE users SET email_verified_at = NOW() WHERE user_id = %s", (user_id, ))
+            cursor.execute("DELETE FROM email_verifications WHERE token = %s", (token, ))
+            
+            conn.commit()
+            
+            return email
+            
     
     def refresh_access_token(self, refresh_token: str) -> Token:
         """
