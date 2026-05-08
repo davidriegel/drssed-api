@@ -161,7 +161,8 @@ class AuthenticationManager:
         """
         with Database.getConnection() as conn:
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM refresh_tokens WHERE refresh_token = %s;", (refresh_token,))
+            cursor.execute("DELETE FROM refresh_tokens WHERE refresh_token = %s", (refresh_token, ))
+            
             if cursor.rowcount < 1:
                 raise UnauthorizedError
 

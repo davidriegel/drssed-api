@@ -52,16 +52,16 @@ def refresh_access_token():
 
 @auth.route('/logout', methods=['POST'])
 @limiter.limit('2 per minute')
-@authorize_request
 def delete_refresh_token():
     data = request.get_json()
     refresh_token = data.get("refresh_token")
+    
     if not refresh_token:
         raise ValidationError
 
     authentication_manager.delete_refresh_token(refresh_token)
 
-    return "", 204
+    return jsonify({}), 204
     
 @auth.route("/login", methods=["POST"])
 @limiter.limit("5 per minute")
