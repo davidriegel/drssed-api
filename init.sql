@@ -22,7 +22,7 @@ CREATE TABLE
     IF NOT EXISTS email_verifications (
         token VARCHAR(43) PRIMARY KEY,
         user_id VARCHAR(36) NOT NULL,
-        email VARCHAR(255) UNIQUE NOT NULL,
+        email VARCHAR(255) NOT NULL,
         expires_at TIMESTAMP NOT NULL,
         used_at TIMESTAMP DEFAULT NULL,
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
