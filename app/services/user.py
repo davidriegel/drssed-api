@@ -101,24 +101,11 @@ class UserManager:
             logger.error(traceback.format_exc())
             raise e
         
-    def delete_account_by_id(self, user_id: str, password: str) -> None:
-        try:
-            with Database.getConnection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT password FROM users WHERE user_id = %s;", (user_id, ))
-                result = cursor.fetchone()
-                
-                if result is None:
-                    # raise UnauthorizedError instead of NotFoundError to avoid giving away information about which user_ids exist
-                    raise UnauthorizedError
-                
-                hashed_password, = result
+    def delete_account_by_id(self, user_id: str) -> None:
+        with Database.getConnection() as conn:
+            cursor = conn.cursor()
             
-                PasswordHasher().verify(str(hashed_password), password)
-                
-                cursor.execute("DELETE FROM users WHERE user_id = %s;", (user_id, ))
-                conn.commit()
-        except VerifyMismatchError:
-            raise UnauthorizedError
+            cursor.execute("DELETE FROM users WHERE user_id = %s;", (user_id, ))
+            conn.commit()
 
 user_manager = UserManager()

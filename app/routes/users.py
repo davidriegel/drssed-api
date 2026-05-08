@@ -228,17 +228,9 @@ def create_clothing_piece():
 @limiter.limit('1 per minute')
 @authorize_request
 def delete_account():
-    data = request.get_json()
-    if not data:
-        raise ValidationError
+    user_manager.delete_account_by_id(g.user_id)
     
-    password = data.get("password")
-    if not password:
-        raise ValidationError
-
-    user_manager.delete_account_by_id(g.user_id, password)
-    
-    return jsonify({"message": "Account deleted successfully"}), 200
+    return jsonify({}), 204
 
 @users.route('/me', methods=['GET'])
 @authorize_request
