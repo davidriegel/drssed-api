@@ -12,7 +12,7 @@ from argon2.exceptions import VerifyMismatchError
 from app.core.database import Database
 from app.core.email import send_verification_email
 from app.models.token import Token
-from app.utils.exceptions import UnauthorizedError, NotFoundError
+from app.utils.exceptions import UnauthorizedError, NotFoundError, ConflictError
 from app.core.logging import get_logger
 from app.utils.helpers import ensure_utc
 
@@ -28,7 +28,7 @@ REFRESH_TOKEN_LENGTH = 16
 logger = get_logger()
 
 class AuthenticationManager:
-    def create_email_verification(self, user_id: str, preferred_language: str):
+    def create_email_verification(self, user_id: str, preferred_language: str) -> None:
         with Database.getConnection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT email, email_verified_at FROM users WHERE user_id = %s", (user_id, ))
@@ -41,34 +41,33 @@ class AuthenticationManager:
             user_email, user_email_verified = result
             
             if user_email_verified:
-                return
+                raise ConflictError
             
             if not isinstance(user_email, str):
                 raise ValueError("expected user_email to be a string")
             
-            cursor.execute("UPDATE email_verifications SET expires_at = %s WHERE user_id = %s", (datetime.now(timezone.utc), user_id,))
+            cursor.execute("UPDATE email_verifications SET expires_at = %s WHERE user_id = %s AND expires_at > %s", (datetime.now(timezone.utc), user_id, datetime.now(timezone.utc)))
             
             token = secrets.token_urlsafe(24)
             expiry_hours = 24
             expires_at = datetime.now(timezone.utc) + timedelta(hours=expiry_hours)
             cursor.execute("INSERT INTO email_verifications(token, user_id, email, expires_at) VALUES(%s, %s, %s, %s)", (token, user_id, user_email, expires_at))
             conn.commit()
-            
-            public_url = str(urljoin(getenv("API_BASE_URL", ""), f"/auth/email/verify?token={token}"))
-            
-            send_verification_email(user_email, preferred_language, public_url, expiry_hours)
-        return
+        
+        public_url = str(urljoin(getenv("API_BASE_URL", ""), f"/auth/email/verify?token={token}"))
+        
+        send_verification_email(user_email, preferred_language, public_url, expiry_hours)
     
     def verify_email(self, token: str) -> str:
         with Database.getConnection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT user_id, email FROM email_verifications WHERE token = %s AND expires_at > %s", (token, datetime.now(timezone.utc),))
+            cursor.execute("SELECT user_id, email, used_at FROM email_verifications WHERE token = %s AND expires_at > %s", (token, datetime.now(timezone.utc),))
             verification_result = cursor.fetchone()
             
             if not verification_result:
                 raise NotFoundError
             
-            user_id, email, = verification_result
+            user_id, email, used_at = verification_result
             
             if not isinstance(email, str):
                 raise ValueError("expected email to be a string")
@@ -76,8 +75,15 @@ class AuthenticationManager:
             if not isinstance(user_id, str):
                 raise ValueError("expected user_id to be a string")
             
+            if used_at:
+                if not isinstance(used_at, datetime):
+                    raise ValueError("expected used_at to be datetime")
+                
+                if ensure_utc(used_at) < datetime.now(timezone.utc):
+                    return email
+            
             cursor.execute("UPDATE users SET email_verified_at = NOW() WHERE user_id = %s", (user_id, ))
-            cursor.execute("DELETE FROM email_verifications WHERE token = %s", (token, ))
+            cursor.execute("UPDATE email_verifications SET used_at = NOW() WHERE token = %s", (token, ))
             
             conn.commit()
             
