@@ -14,6 +14,7 @@ from app.core.email import send_verification_email
 from app.models.token import Token
 from app.utils.exceptions import UnauthorizedError
 from app.core.logging import get_logger
+from app.utils.helpers import ensure_utc
 
 SECRET_TOKEN_KEY = getenv("SECRET_TOKEN_KEY")
 
@@ -77,7 +78,7 @@ class AuthenticationManager:
                 raise ValueError("expected user_id to be a str")
             
             if isinstance(refresh_token_expiry, datetime):
-                if refresh_token_expiry < datetime.now(timezone.utc):
+                if ensure_utc(refresh_token_expiry) < datetime.now(timezone.utc):
                     raise UnauthorizedError
             
             cursor.execute("SELECT is_guest FROM users WHERE user_id = %s", (user_id, ))

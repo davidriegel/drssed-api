@@ -1,5 +1,6 @@
 __all__ = ["helper"]
 
+from datetime import datetime, timezone
 from ..models.outfit import CanvasPlacement
 from flask import has_request_context, g, request
 from typing import Any, cast, Sequence
@@ -68,3 +69,6 @@ class HelperFunctions:
         )
 
 helper = HelperFunctions()
+
+def ensure_utc(dt: datetime) -> datetime:
+    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
