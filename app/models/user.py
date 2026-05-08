@@ -10,6 +10,7 @@ class User:
     updated_at: datetime
     username: Optional[str] = None
     email: Optional[str] = None
+    email_verified_at: Optional[datetime] = None
     profile_picture: Optional[str] = None
     
     def to_dict(self, exclude_none=True) -> dict:
@@ -18,6 +19,7 @@ class User:
             "is_guest": bool(self.is_guest),
             "username": self.username,
             "email": self.email,
+            "email_verified_at": self.email_verified_at.replace(tzinfo=timezone.utc).isoformat(timespec="seconds") if self.email_verified_at else None,
             "profile_picture": self.profile_picture,
             "created_at": self.created_at.replace(tzinfo=timezone.utc).isoformat(timespec="seconds") if self.created_at else None,
             "updated_at": self.updated_at.replace(tzinfo=timezone.utc).isoformat(timespec="seconds") if self.updated_at else None,
@@ -35,6 +37,7 @@ class User:
             is_guest=bool(data['is_guest']),
             username=data.get('username'),
             email=data.get('email'),
+            email_verified_at=data.get('email_verified_at'),
             profile_picture=data.get('profile_picture'),
             created_at=data['created_at'],
             updated_at=data['updated_at']
