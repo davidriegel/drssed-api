@@ -1,9 +1,9 @@
-from flask import Blueprint, request, jsonify, g
+from flask import Blueprint, request, jsonify, g, render_template
 from app.services.authentication import authentication_manager
 from app.utils.middleware.authentication import authorize_request
 from app.services.user import user_manager
 from app.core.limiter import limiter
-from app.utils.exceptions import ValidationError
+from app.utils.exceptions import ValidationError, NotFoundError
 
 auth = Blueprint("auth", __name__)
 
@@ -20,10 +20,13 @@ def verify_email():
     token = request.args.get("token")
     
     if not token:
-        raise ValidationError
+        return render_template(f'/verification/email_verified.{g.preferred_language}.html', status='invalid'), 400
     
-    verified_email = authentication_manager.verify_email(token)
-    return {"email": verified_email}, 200
+    try:
+        verified_email = authentication_manager.verify_email(token)
+        return render_template(f'/verification/email_verified.{g.preferred_language}.html', status='success', email=verified_email), 200
+    except NotFoundError:
+        return render_template(f'/verification/email_verified.{g.preferred_language}.html', status='invalid'), 400
 
 @auth.route('/guest', methods=['POST'])
 @limiter.limit('1 per hour')
