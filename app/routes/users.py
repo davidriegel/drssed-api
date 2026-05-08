@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, g
 from ..services.user import user_manager
 from app.services.outfit import outfit_manager
+from app.services.authentication import authentication_manager
 from app.services.clothing import clothing_manager
 from app.models.clothing import ClothingTags, ClothingCategory, ClothingSubCategory
 from app.models.season import Season
@@ -31,7 +32,11 @@ def upgrade_guest():
     
     user = user_manager.upgrade_guest_account(g.user_id, password, profile_picture, email, username)
     
-    return jsonify(user.to_dict()), 201
+    authentication_manager.revoke_all_refresh_tokens(g.user_id)
+    
+    new_tokens = authentication_manager.sign_in_user(email, username, password)
+    
+    return jsonify({"user": user.to_dict(), "token": new_tokens.to_dict()}), 201
 
 @users.route("/me/clothing/sync", methods=["GET"])
 @limiter.limit('5 per minute')
