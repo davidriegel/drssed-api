@@ -181,9 +181,9 @@ class AuthenticationManager:
             with Database.getConnection() as conn:
                 cursor = conn.cursor()
                 if email:
-                    cursor.execute("SELECT password, user_id FROM users WHERE email = %s", (email,))
+                    cursor.execute("SELECT password_hash, user_id FROM users WHERE email = %s", (email,))
                 else:
-                    cursor.execute("SELECT password, user_id FROM users WHERE username = %s", (username,))
+                    cursor.execute("SELECT password_hash, user_id FROM users WHERE username = %s", (username,))
                     
                 user = cursor.fetchone()
             
@@ -253,7 +253,7 @@ class AuthenticationManager:
 
         with Database.getConnection() as conn:
             cursor = conn.cursor()
-            cursor.execute("INSERT INTO users(user_id, is_guest, email, username, password, profile_picture, preferred_language) VALUES (%s, %s, %s, %s, %s, %s, %s);", (user_id, is_guest, email, username, password, profilePicture, preferred_language))
+            cursor.execute("INSERT INTO users(user_id, is_guest, email, username, password_hash, profile_picture, preferred_language) VALUES (%s, %s, %s, %s, %s, %s, %s);", (user_id, is_guest, email, username, password, profilePicture, preferred_language))
             conn.commit()
             
         return user_id

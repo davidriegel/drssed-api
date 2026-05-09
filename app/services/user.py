@@ -50,7 +50,7 @@ class UserManager:
         try:
             with Database.getConnection() as conn:
                 cursor = conn.cursor(dictionary=True)
-                cursor.execute("UPDATE users SET is_guest = FALSE, email = %s, username = %s, password = %s, profile_picture = %s WHERE user_id = %s AND is_guest = TRUE;", (email, username, hashed_password, profile_picture, user_id))
+                cursor.execute("UPDATE users SET is_guest = FALSE, email = %s, username = %s, password_hash = %s, profile_picture = %s WHERE user_id = %s AND is_guest = TRUE;", (email, username, hashed_password, profile_picture, user_id))
                 
                 if cursor.rowcount == 0:
                     raise NotFoundError
