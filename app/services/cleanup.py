@@ -49,7 +49,7 @@ def run_guest_cleanup() -> None:
         got_lock, = result
         
         if got_lock != 1:
-            logger.info("Inactive guest cleanup skipped: lock held by another worker")
+            logger.debug("Inactive guest cleanup skipped: lock held by another worker")
             return
         
         try:
@@ -108,6 +108,7 @@ def run_orphan_files_cleanup() -> None:
         try:
             _do_orphan_cleanup(cursor, CLOTHING_SUBDIR, "SELECT image_id FROM clothing WHERE image_id IS NOT NULL;")
             _do_orphan_cleanup(cursor, OUTFIT_SUBDIR, "SELECT outfit_id FROM outfits;")
+            _do_orphan_cleanup(cursor, PROFILE_PICTURE_SUBDIR, "SELECT profile_picture FROM users WHERE profile_picture IS NOT NULL;", skip_prefixes=("default/",))
         finally:
             cursor.execute("SELECT RELEASE_LOCK(%s);", (ORPHAN_CLEANUP_LOCK_NAME,))
             cursor.fetchone()
@@ -227,7 +228,7 @@ def _delete_files(paths: list) -> int:
             pass
     return deleted
 
-def _do_orphan_cleanup(cursor, subdir: str, query: str) -> None:
+def _do_orphan_cleanup(cursor, subdir: str, query: str, skip_prefixes: tuple[str, ...] = ()) -> None:
     directory = _get_static_folder() / subdir
     
     if not directory.exists():
@@ -261,6 +262,9 @@ def _do_orphan_cleanup(cursor, subdir: str, query: str) -> None:
         
         if not isinstance(file_id, str):
             raise ValueError("Expected file_id to be a string")
+        
+        if any(file_id.startswith(prefix) for prefix in skip_prefixes):
+            continue
         
         referenced.add(f"{file_id}.webp")
     
