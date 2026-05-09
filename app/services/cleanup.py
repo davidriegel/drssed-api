@@ -1,4 +1,4 @@
-__all__ = ["run_guest_cleanup"]
+__all__ = ["run_guest_cleanup", "run_orphan_files_cleanup"]
 
 import os
 from pathlib import Path
@@ -13,6 +13,7 @@ from app.core.logging import get_logger
 INACTIVE_DAYS = int(getenv("CLEANUP_INACTIVE_DAYS", "90"))
 MAX_DELETE_PER_RUN = int(getenv("CLEANUP_MAX_DELETE", "100"))
 CLEANUP_LOCK_NAME = "drssed_cleanup_job"
+ORPHAN_CLEANUP_LOCK_NAME = "drssed_orphan_cleanup_job"
 
 PROFILE_PICTURE_SUBDIR = "profile_pictures"
 CLOTHING_SUBDIR = "clothing_images"
@@ -21,6 +22,8 @@ OUTFIT_SUBDIR = "outfit_collages"
 TEMP_SUBDIR = "temp"
 
 TEMP_FILE_MAX_AGE_HOURS = 24
+ORPHAN_FILE_GRACE_HOURS = int(getenv("CLEANUP_ORPHAN_GRACE_HOURS", "24"))
+ORPHAN_MAX_DELETE_PER_RUN = int(getenv("CLEANUP_ORPHAN_MAX_DELETE", "500"))
 
 logger = get_logger()
 
@@ -85,6 +88,30 @@ def run_temp_cleanup() -> None:
     
     logger.debug("Orphaned temporary file cleanup complete", extra={"deleted": deleted, "skipped": skipped, "failed": failed})
 
+def run_orphan_files_cleanup() -> None:
+    with Database.getConnection() as conn:
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT GET_LOCK(%s, 0);", (ORPHAN_CLEANUP_LOCK_NAME,))
+        result = cursor.fetchone()
+        
+        if not result or not isinstance(result, tuple):
+            logger.warning("Orphan cleanup lock acquisition returned no result")
+            return
+        
+        got_lock, = result
+        
+        if got_lock != 1:
+            logger.debug("Orphan files cleanup skipped: lock held by another worker")
+            return
+        
+        try:
+            _do_orphan_cleanup(cursor, CLOTHING_SUBDIR, "SELECT image_id FROM clothing WHERE image_id IS NOT NULL;")
+            _do_orphan_cleanup(cursor, OUTFIT_SUBDIR, "SELECT outfit_id FROM outfits;")
+        finally:
+            cursor.execute("SELECT RELEASE_LOCK(%s);", (ORPHAN_CLEANUP_LOCK_NAME,))
+            cursor.fetchone()
+
 def create_cleanup_jobs() -> list[JobSpec]:
     """Define all cleanup-related scheduled jobs."""
     return [
@@ -99,6 +126,12 @@ def create_cleanup_jobs() -> list[JobSpec]:
             trigger=CronTrigger(hour="*/6", minute=15),
             job_id="cleanup_temp_files",
             name="Cleanup orphaned temp files",
+        ),
+        JobSpec(
+            func=run_orphan_files_cleanup,
+            trigger=CronTrigger(hour=3, minute=30),
+            job_id="cleanup_orphan_files",
+            name="Cleanup orphaned image files",
         ),
     ]
             
@@ -193,3 +226,89 @@ def _delete_files(paths: list) -> int:
         except FileNotFoundError:
             pass
     return deleted
+
+def _do_orphan_cleanup(cursor, subdir: str, query: str) -> None:
+    directory = _get_static_folder() / subdir
+    
+    if not directory.exists():
+        logger.warning("Orphan cleanup skipped: directory does not exist", extra={"subdir": subdir})
+        return
+    
+    cutoff_timestamp = (datetime.now() - timedelta(hours=ORPHAN_FILE_GRACE_HOURS)).timestamp()
+    
+    logger.debug("Start orphan files cleanup", extra={
+        "subdir": subdir,
+        "grace_hours": ORPHAN_FILE_GRACE_HOURS,
+        "max_delete": ORPHAN_MAX_DELETE_PER_RUN
+    })
+    
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    
+    if not isinstance(rows, list):
+        raise ValueError("Expected rows to be a list")
+    
+    referenced: set[str] = set()
+    
+    for row in rows:
+        if not isinstance(row, tuple):
+            raise ValueError("Expected row to be a tuple")
+        
+        file_id, = row
+        
+        if file_id is None:
+            continue
+        
+        if not isinstance(file_id, str):
+            raise ValueError("Expected file_id to be a string")
+        
+        referenced.add(f"{file_id}.webp")
+    
+    scanned = 0
+    deleted = 0
+    skipped_referenced = 0
+    skipped_grace = 0
+    failed = 0
+    bytes_freed = 0
+    
+    for entry in directory.iterdir():
+        if not entry.is_file():
+            continue
+        
+        scanned += 1
+        
+        if entry.name in referenced:
+            skipped_referenced += 1
+            continue
+        
+        try:
+            stat = entry.stat()
+            
+            if stat.st_mtime >= cutoff_timestamp:
+                skipped_grace += 1
+                continue
+            
+            if deleted >= ORPHAN_MAX_DELETE_PER_RUN:
+                logger.info("Orphan cleanup hit per-run limit", extra={"subdir": subdir, "limit": ORPHAN_MAX_DELETE_PER_RUN})
+                break
+            
+            size = stat.st_size
+            
+            entry.unlink(missing_ok=True)
+            
+            deleted += 1
+            bytes_freed += size
+        except Exception as e:
+            failed += 1
+            logger.error("Failed to delete orphan file", extra={"subdir": subdir, "name": entry.name, "error": str(e)})
+    
+    logger.debug("Orphan files cleanup complete", extra={
+        "subdir": subdir,
+        "scanned": scanned,
+        "referenced": len(referenced),
+        "deleted": deleted,
+        "skipped_referenced": skipped_referenced,
+        "skipped_grace": skipped_grace,
+        "failed": failed,
+        "bytes_freed": bytes_freed
+    })
