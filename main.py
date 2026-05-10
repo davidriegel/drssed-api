@@ -15,7 +15,8 @@ from app.utils.exceptions import (
     NotFoundError,
     ConflictError,
     PermissionError,
-    UnauthorizedError
+    UnauthorizedError,
+    UnprocessableEntityError
 )
 from app.utils.helpers import helper
 from app.routes.main import api as main
@@ -81,6 +82,12 @@ def unauthorized_error_handler(error):
     logger.warning(f"Unauthorized access: {str(error)}", extra=helper.get_request_context())
     
     return jsonify({"error": str(error)}), 401
+
+@api.errorhandler(UnprocessableEntityError)
+def unprocessable_error_handler(error):
+    logger.warning(f"Unprocessable entity: {str(error)}", extra=helper.get_request_context())
+    
+    return jsonify({"error": str(error)}), 422
 
 @api.errorhandler(Exception)
 def internal_error_handler(error):
