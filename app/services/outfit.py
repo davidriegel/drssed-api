@@ -78,6 +78,9 @@ class OutfitManager:
                 tags=tags or [tag for tag in OutfitTags]
             )
             outfits.append(outfit)
+            
+        if not outfits:
+            raise UnprocessableEntityError
         
         return outfits
     
