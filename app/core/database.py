@@ -51,8 +51,6 @@ def get_session() -> Generator:
             session.execute("INSERT INTO ...", params)
             session.execute("INSERT INTO ...", params)
             # auto-commits if no exception, rolls back otherwise
-    
-    For single read queries you can use spec.provide_session(db) directly.
     """
     session = None
     try:
