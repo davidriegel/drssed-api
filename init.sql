@@ -6,9 +6,9 @@ CREATE TABLE
     IF NOT EXISTS users (
     user_id VARCHAR(36) NOT NULL,
     is_guest TINYINT(1) NOT NULL DEFAULT 0,
-    username VARCHAR(32) NOT NULL,
+    username VARCHAR(32) NULL,
     email VARCHAR(255) NULL,
-    password VARCHAR(97) NULL,
+    password_hash VARCHAR(97) NULL,
     profile_picture VARCHAR(255) NULL,
     apple_user_id VARCHAR(255) NULL,
     email_verified_at TIMESTAMP NULL,
