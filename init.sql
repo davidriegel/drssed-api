@@ -12,7 +12,7 @@ CREATE TABLE
     profile_picture VARCHAR(255) NULL,
     apple_user_id VARCHAR(255) NULL,
     email_verified_at TIMESTAMP NULL,
-    preferred_language CHAR(2) NULL,
+    preferred_language CHAR(2) NOT NULL DEFAULT 'en',
     last_active_at TIMESTAMP NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
