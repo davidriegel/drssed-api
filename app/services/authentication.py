@@ -9,12 +9,17 @@ from typing import Optional
 from datetime import datetime, timedelta, timezone
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
-from app.core.database import Database
 from app.core.email import send_verification_email
-from app.models.token import Token
+from app.core.database import get_session
+from app.models.token import Token, AccessToken
+from app.persistence.queries import user as user_queries
+from app.persistence.queries import refresh_token as refresh_token_queries
+from app.persistence.queries import email_verification as email_verification_queries
+from app.persistence.schemas import user as user_schemas
+from app.persistence.schemas import refresh_token as refresh_token_schemas
+from app.persistence.schemas import email_verification as email_verification_schemas
 from app.utils.exceptions import UnauthorizedError, NotFoundError, ConflictError
 from app.core.logging import get_logger
-from app.utils.helpers import ensure_utc
 
 SECRET_TOKEN_KEY = getenv("SECRET_TOKEN_KEY")
 
@@ -25,69 +30,45 @@ ACCESS_TOKEN_EXPIRY_HOURS = 1
 REFRESH_TOKEN_EXPIRY_DAYS = 90
 REFRESH_TOKEN_LENGTH = 16
 
+EMAIL_VERIFICATION_TOKEN_EXPIRY_HOURS = 24
+
 logger = get_logger()
 
 class AuthenticationManager:
     def create_email_verification(self, user_id: str, preferred_language: str) -> None:
-        with Database.getConnection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT email, email_verified_at FROM users WHERE user_id = %s", (user_id, ))
-            result = cursor.fetchone()
-            
-            if not result:
-                logger.warning(f"Email verification requested for non-existent user {user_id}")
-                return
-            
-            user_email, user_email_verified = result
-            
-            if user_email_verified:
-                raise ConflictError
-            
-            if not isinstance(user_email, str):
-                raise ValueError("expected user_email to be a string")
-            
-            cursor.execute("UPDATE email_verifications SET expires_at = %s WHERE user_id = %s AND expires_at > %s", (datetime.now(timezone.utc), user_id, datetime.now(timezone.utc)))
-            
-            token = secrets.token_urlsafe(24)
-            expiry_hours = 24
-            expires_at = datetime.now(timezone.utc) + timedelta(hours=expiry_hours)
-            cursor.execute("INSERT INTO email_verifications(token, user_id, email, expires_at) VALUES(%s, %s, %s, %s)", (token, user_id, user_email, expires_at))
-            conn.commit()
+        is_verified = user_queries.get_email_verification_status(user_id)
         
-        public_url = str(urljoin(getenv("API_BASE_URL", ""), f"/auth/email/verify?token={token}"))
+        if is_verified and is_verified.email_verified_at:
+            raise ConflictError
         
-        send_verification_email(user_email, preferred_language, public_url, expiry_hours)
+        if not is_verified or not is_verified.email:
+            raise NotFoundError
+        
+        new_verification_token = email_verification_schemas.EmailVerificationToken(token=secrets.token_urlsafe(24), email=is_verified.email, user_id=user_id, expires_at=datetime.now(timezone.utc) + timedelta(hours=EMAIL_VERIFICATION_TOKEN_EXPIRY_HOURS), used_at=None)
+        
+        with get_session() as session:
+            email_verification_queries.expire_for_user(session, user_id)
+            email_verification_queries.create(session, new_verification_token)
+        
+        public_url = str(urljoin(getenv("API_BASE_URL", ""), f"/auth/email/verify?token={new_verification_token.token}"))
+        
+        send_verification_email(is_verified.email, preferred_language, public_url, EMAIL_VERIFICATION_TOKEN_EXPIRY_HOURS)
     
     def verify_email(self, token: str) -> str:
-        with Database.getConnection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT user_id, email, used_at FROM email_verifications WHERE token = %s AND expires_at > %s", (token, datetime.now(timezone.utc),))
-            verification_result = cursor.fetchone()
+        email_verification_token = email_verification_queries.get_by_token(token)
+        
+        if not email_verification_token:
+            raise NotFoundError
+        
+        if email_verification_token.used_at:
+            if email_verification_token.used_at < datetime.now(timezone.utc):
+                return email_verification_token.email
             
-            if not verification_result:
-                raise NotFoundError
+        with get_session() as session:
+            email_verification_queries.mark_as_used(session, token)
+            user_queries.mark_email_as_verified(session, email_verification_token.user_id)
             
-            user_id, email, used_at = verification_result
-            
-            if not isinstance(email, str):
-                raise ValueError("expected email to be a string")
-            
-            if not isinstance(user_id, str):
-                raise ValueError("expected user_id to be a string")
-            
-            if used_at:
-                if not isinstance(used_at, datetime):
-                    raise ValueError("expected used_at to be datetime")
-                
-                if ensure_utc(used_at) < datetime.now(timezone.utc):
-                    return email
-            
-            cursor.execute("UPDATE users SET email_verified_at = NOW() WHERE user_id = %s", (user_id, ))
-            cursor.execute("UPDATE email_verifications SET used_at = NOW() WHERE token = %s", (token, ))
-            
-            conn.commit()
-            
-            return email
+        return email_verification_token.email
             
     
     def refresh_access_token(self, refresh_token: str) -> Token:
@@ -95,78 +76,37 @@ class AuthenticationManager:
         :params refresh_token str:
         :returns Token: A new access token, its expiry in seconds, and a new refresh token
         """
-        with Database.getConnection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT user_id, refresh_token_expiry FROM refresh_tokens WHERE refresh_token = %s;", (refresh_token,))
-            result = cursor.fetchone()
-
-            if not result or not isinstance(result, tuple):
-                raise UnauthorizedError
-            
-            user_id, refresh_token_expiry = result
-            
-            if not isinstance(user_id, str):
-                raise ValueError("expected user_id to be a str")
-            
-            if isinstance(refresh_token_expiry, datetime):
-                if ensure_utc(refresh_token_expiry) < datetime.now(timezone.utc):
-                    raise UnauthorizedError
-            
-            cursor.execute("SELECT is_guest FROM users WHERE user_id = %s", (user_id, ))
-            result = cursor.fetchone()
-            
-            if not result or not isinstance(result, tuple):
-                cursor.execute("DELETE FROM refresh_tokens WHERE user_id = %s", (user_id,))
-                conn.commit()
-                raise Exception("Database integrity error: refresh token exists for non-existent user")
-            
-            is_guest, = result
-            
-            if not isinstance(is_guest, int) and not is_guest in (0, 1):
-                raise ValueError("expected is_guest to be a int of value 0 or 1")
-
-            access_token = self._generate_access_token(user_id, is_guest=bool(is_guest))
-            new_refresh_token = self._generate_refresh_token()
-
-            if is_guest:
-                cursor.execute("""
-                            UPDATE refresh_tokens
-                            SET refresh_token = %s
-                            WHERE refresh_token = %s;
-                            """, (new_refresh_token, refresh_token,))
-            else:
-                refresh_token_expiry = (datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRY_DAYS)).strftime('%Y-%m-%d %H:%M:%S')
-                cursor.execute("""
-                                UPDATE refresh_tokens
-                                SET refresh_token_expiry = %s, refresh_token = %s
-                                WHERE refresh_token = %s;
-                                """, (refresh_token_expiry, new_refresh_token, refresh_token,))
-                
-            cursor.execute("UPDATE users SET last_active_at = CURRENT_TIMESTAMP WHERE user_id = %s", (user_id,))
-                
-            conn.commit()
-
-        return Token(access_token=access_token, expires_in=ACCESS_TOKEN_EXPIRY_HOURS * 60 * 60, refresh_token=new_refresh_token)
+        refresh_token_model = refresh_token_queries.get_by_token(refresh_token)
+        
+        if not refresh_token_model:
+            raise UnauthorizedError
+        
+        if refresh_token_model.refresh_token_expiry and refresh_token_model.refresh_token_expiry < datetime.now(timezone.utc):
+            raise UnauthorizedError
+        
+        user_id = refresh_token_model.user_id
+        
+        user_guest_status = user_queries.get_guest_status(user_id)
+        is_guest = user_guest_status.is_guest if user_guest_status else False
+        access_token = self._generate_access_token(refresh_token_model.user_id, is_guest=is_guest)
+        new_refresh_token = self._generate_refresh_token(user_id=user_id, with_expiry=not is_guest)
+        
+        refresh_token_queries.update(refresh_token, new_refresh_token)
+        user_queries.update_last_active_at(user_id)
+        
+        return Token(access_token=access_token.access_token, expires_in=access_token.expires_in, refresh_token=new_refresh_token.refresh_token)
     
     def revoke_all_refresh_tokens(self, user_id: str) -> None:
-        with Database.getConnection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM refresh_tokens WHERE user_id = %s", (user_id, ))
-            
-            conn.commit()
+        """
+        :params user_id str: The ID of the user whose refresh tokens should be revoked
+        """
+        refresh_token_queries.delete_by_user_id(user_id)
             
     def delete_refresh_token(self, refresh_token: str) -> None:
         """
         :params refresh_token str:
         """
-        with Database.getConnection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM refresh_tokens WHERE refresh_token = %s", (refresh_token, ))
-            
-            if cursor.rowcount < 1:
-                raise UnauthorizedError
-
-            conn.commit()
+        refresh_token_queries.delete_by_token(refresh_token)
         
     def register_guest(self, preferred_language: str = "en") -> Token:
         """
@@ -177,26 +117,25 @@ class AuthenticationManager:
         return self._generate_token_pair(user_id, is_guest=True)
         
     def sign_in_user(self, email: Optional[str], username: Optional[str], password: str) -> Token:
-        try:
-            with Database.getConnection() as conn:
-                cursor = conn.cursor()
-                if email:
-                    cursor.execute("SELECT password_hash, user_id FROM users WHERE email = %s", (email,))
-                else:
-                    cursor.execute("SELECT password_hash, user_id FROM users WHERE username = %s", (username,))
-                    
-                user = cursor.fetchone()
+        if not email and not username:
+            raise ValueError
+        
+        if email:
+            user_sign_in = user_queries.get_for_login_by_email(email)
+        elif username:
+            user_sign_in = user_queries.get_for_login_by_username(username)
+        else:
+            user_sign_in = None
             
-                if not user:
-                    raise UnauthorizedError
-                
-                db_password, db_user_id = user
-                
-                PasswordHasher().verify(str(db_password), password)
+        if not user_sign_in:
+            raise UnauthorizedError
+        
+        try:
+            PasswordHasher().verify(user_sign_in.password_hash, password)
         except VerifyMismatchError:
             raise UnauthorizedError
         
-        return self._generate_token_pair(str(db_user_id), False)
+        return self._generate_token_pair(user_sign_in.user_id, is_guest=False)
 
     def get_user_id_from_token(self, token: str) -> str:
         payload = self._get_payload_from_access_token(token)
@@ -219,42 +158,29 @@ class AuthenticationManager:
         return is_guest
         
     def _generate_token_pair(self, user_id: str, is_guest: bool) -> Token:
-        with Database.getConnection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT user_id, refresh_token, refresh_token_expiry from refresh_tokens WHERE user_id = %s ORDER BY refresh_token_expiry ASC", (user_id, ))
-            result = cursor.fetchall()
+        refresh_tokens = refresh_token_queries.get_by_user_id(user_id)
+        
+        if refresh_tokens and len(refresh_tokens) >= 5:
+            oldest_token = refresh_tokens[0]
             
-            if len(result) >= 5:
-                refresh_token_list = result[0]
-                
-                _, refresh_token, _ = refresh_token_list
-                
-                if not isinstance(refresh_token, str):
-                    raise ValueError("expected refresh_token to be a str")
-                
-                cursor.execute("DELETE FROM refresh_tokens WHERE refresh_token = %s", (refresh_token, ))
+            refresh_token_queries.delete_by_token(oldest_token.refresh_token)
+            
+        refresh_token = self._generate_refresh_token(user_id=user_id, with_expiry=not is_guest)
         
-            refresh_token = self._generate_refresh_token()
-            refreshTokenExpiry = (datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRY_DAYS)).strftime('%Y-%m-%d %H:%M:%S')
-        
-            if not is_guest:
-                cursor.execute("INSERT INTO refresh_tokens(user_id, refresh_token, refresh_token_expiry) VALUES (%s, %s, %s);", (user_id, refresh_token, refreshTokenExpiry))
-            else:
-                cursor.execute("INSERT INTO refresh_tokens(user_id, refresh_token) VALUES(%s, %s);", (user_id, refresh_token))
-                
-            conn.commit()
+        refresh_token_queries.create(refresh_token)
 
         access_token = self._generate_access_token(user_id, is_guest=is_guest)
 
-        return Token(access_token=access_token, expires_in=ACCESS_TOKEN_EXPIRY_HOURS * 60 * 60, refresh_token=refresh_token)
+        token = Token(access_token=access_token.access_token, expires_in=access_token.expires_in, refresh_token=refresh_token.refresh_token)
+        
+        return token
         
     def _add_user_to_database(self, is_guest: bool = True, email: Optional[str] = None, username: Optional[str] = None, password: Optional[str] = None, profilePicture: Optional[str] = None, preferred_language: str = "en") -> str:
         user_id = str(uuid.uuid4())
-
-        with Database.getConnection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("INSERT INTO users(user_id, is_guest, email, username, password_hash, profile_picture, preferred_language) VALUES (%s, %s, %s, %s, %s, %s, %s);", (user_id, is_guest, email, username, password, profilePicture, preferred_language))
-            conn.commit()
+        
+        user = user_schemas.UserCreate(user_id=user_id, is_guest=is_guest, email=email, username=username, password_hash=password, profile_picture=profilePicture, preferred_language=preferred_language)
+        
+        user_queries.create(user)
             
         return user_id
         
@@ -265,16 +191,23 @@ class AuthenticationManager:
         except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, jwt.DecodeError):
             raise UnauthorizedError
 
-    def _generate_refresh_token(self) -> str:
-        randRefreshToken = "".join(secrets.token_urlsafe(REFRESH_TOKEN_LENGTH))
-        return f"{randRefreshToken}"
+    def _generate_refresh_token(self, user_id: str, with_expiry: bool = True) -> refresh_token_schemas.RefreshToken:
+        refresh_token = "".join(secrets.token_urlsafe(REFRESH_TOKEN_LENGTH))
+        refresh_token_expiry = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRY_DAYS)
 
-    def _generate_access_token(self, user_id: str, is_guest: bool) -> str:
+        return refresh_token_schemas.RefreshToken(
+            refresh_token=refresh_token,
+            user_id=user_id,
+            refresh_token_expiry=refresh_token_expiry if with_expiry else None
+        )
+
+    def _generate_access_token(self, user_id: str, is_guest: bool) -> AccessToken:
         payload = {
             'sub': user_id,
             'exp': datetime.now(timezone.utc) + timedelta(hours=ACCESS_TOKEN_EXPIRY_HOURS),
             'is_guest': is_guest
         }
-        return jwt.encode(payload, SECRET_TOKEN_KEY, algorithm='HS256')
+        access_token = jwt.encode(payload, SECRET_TOKEN_KEY, algorithm='HS256')
+        return AccessToken(access_token=access_token, expires_in=ACCESS_TOKEN_EXPIRY_HOURS * 60 * 60)
 
 authentication_manager = AuthenticationManager()

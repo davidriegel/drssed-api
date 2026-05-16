@@ -1,10 +1,15 @@
-from dataclasses import dataclass, asdict
+from pydantic import BaseModel, ConfigDict
 
-@dataclass
-class Token:
+class Token(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    
     access_token: str
     expires_in: int
     refresh_token: str
+    token_type: str = "Bearer"
     
-    def to_dict(self) -> dict:
-        return asdict(self)
+class AccessToken(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    
+    access_token: str
+    expires_in: int

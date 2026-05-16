@@ -1,0 +1,200 @@
+from app.core.database import spec, db
+from app.persistence.schemas.user import (
+    UserProfile,
+    UserPublicProfile,
+    UserSignIn,
+    UserCreate,
+    UserExistsCheck,
+    UserGuestStatus,
+    UserEmailVerificationStatus,
+)
+
+
+# Reads
+
+def get_profile_by_id(user_id: str) -> UserProfile | None:
+    """Fetches full profile information for a user by their ID."""
+    with spec.provide_session(db) as session:
+        return session.select_one_or_none(
+            """
+            SELECT user_id, is_guest, username, email, profile_picture, email_verified_at, preferred_language, created_at, last_active_at
+            FROM users
+            WHERE user_id = :user_id
+            """,
+            {"user_id": user_id},
+            schema_type=UserProfile,
+        )
+
+
+def get_public_profile_by_id(user_id: str) -> UserPublicProfile | None:
+    """Fetches public profile information for a user by their ID."""
+    with spec.provide_session(db) as session:
+        return session.select_one_or_none(
+            """
+            SELECT user_id, is_guest, username, profile_picture, created_at
+            FROM users
+            WHERE user_id = :user_id
+            """,
+            {"user_id": user_id},
+            schema_type=UserPublicProfile,
+        )
+
+
+def get_for_login_by_email(email: str) -> UserSignIn | None:
+    """Retrieves user_id and password hash needed for login by email."""
+    with spec.provide_session(db) as session:
+        return session.select_one_or_none(
+            """
+            SELECT user_id, password_hash
+            FROM users
+            WHERE email = :email
+            """,
+            {"email": email},
+            schema_type=UserSignIn,
+        )
+
+
+def get_for_login_by_username(username: str) -> UserSignIn | None:
+    """Retrieves user_id and password hash needed for login by username."""
+    with spec.provide_session(db) as session:
+        return session.select_one_or_none(
+            """
+            SELECT user_id, password_hash
+            FROM users
+            WHERE username = :username
+            """,
+            {"username": username},
+            schema_type=UserSignIn,
+        )
+
+
+def get_guest_status(user_id: str) -> UserGuestStatus | None:
+    """Checks if a user is a guest."""
+    with spec.provide_session(db) as session:
+        return session.select_one_or_none(
+            """
+            SELECT user_id, is_guest
+            FROM users
+            WHERE user_id = :user_id
+            """,
+            {"user_id": user_id},
+            schema_type=UserGuestStatus,
+        )
+
+
+def get_email_verification_status(user_id: str) -> UserEmailVerificationStatus | None:
+    """Fetches email verification status for a user."""
+    with spec.provide_session(db) as session:
+        return session.select_one_or_none(
+            """
+            SELECT user_id, email, email_verified_at, preferred_language
+            FROM users
+            WHERE user_id = :user_id
+            """,
+            {"user_id": user_id},
+            schema_type=UserEmailVerificationStatus,
+        )
+
+
+def email_exists(email: str) -> bool:
+    """Checks whether a given email is already registered."""
+    with spec.provide_session(db) as session:
+        result = session.select_one_or_none(
+            "SELECT user_id FROM users WHERE email = :email LIMIT 1",
+            {"email": email},
+            schema_type=UserExistsCheck,
+        )
+        return result is not None
+
+
+def username_exists(username: str) -> bool:
+    """Checks whether a given username is already taken."""
+    with spec.provide_session(db) as session:
+        result = session.select_one_or_none(
+            "SELECT user_id FROM users WHERE username = :username LIMIT 1",
+            {"username": username},
+            schema_type=UserExistsCheck,
+        )
+        return result is not None
+
+
+# Writes
+
+def create(user: UserCreate) -> None:
+    """Inserts a new user into the database."""
+    with spec.provide_session(db) as session:
+        session.execute(
+            """
+            INSERT INTO users (user_id, is_guest, username, email, profile_picture, password_hash, apple_user_id, preferred_language)
+            VALUES (:user_id, :is_guest, :username, :email, :profile_picture, :password_hash, :apple_user_id, :preferred_language)
+            """,
+            user.model_dump(),
+        )
+
+
+def upgrade_guest_account(
+    user_id: str,
+    password_hash: str,
+    profile_picture: str,
+    email: str | None,
+    username: str | None,
+) -> None:
+    """Converts a guest account to a regular account."""
+    with spec.provide_session(db) as session:
+        session.execute(
+            """
+            UPDATE users
+            SET is_guest = FALSE,
+                email = :email,
+                username = :username,
+                password_hash = :password_hash,
+                profile_picture = :profile_picture
+            WHERE user_id = :user_id AND is_guest = TRUE
+            """,
+            {
+                "email": email,
+                "username": username,
+                "password_hash": password_hash,
+                "profile_picture": profile_picture,
+                "user_id": user_id,
+            },
+        )
+
+
+def update_last_active_at(user_id: str) -> None:
+    """Updates the last_active_at timestamp for a user to now."""
+    with spec.provide_session(db) as session:
+        session.execute(
+            """
+            UPDATE users
+            SET last_active_at = CURRENT_TIMESTAMP
+            WHERE user_id = :user_id
+            """,
+            {"user_id": user_id},
+        )
+
+
+def mark_email_as_verified(session, user_id: str) -> None:
+    """
+    Marks a user's email as verified.
+    
+    Session-parameter version: meant to be called inside a transaction
+    that also marks the corresponding email verification token as used.
+    """
+    session.execute(
+        """
+        UPDATE users
+        SET email_verified_at = CURRENT_TIMESTAMP
+        WHERE user_id = :user_id
+        """,
+        {"user_id": user_id},
+    )
+
+
+def delete_by_id(user_id: str) -> None:
+    """Deletes a user account by their ID."""
+    with spec.provide_session(db) as session:
+        session.execute(
+            "DELETE FROM users WHERE user_id = :user_id",
+            {"user_id": user_id},
+        )
