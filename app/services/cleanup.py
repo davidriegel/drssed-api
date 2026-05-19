@@ -189,7 +189,6 @@ def run_orphan_files_cleanup() -> None:
         
         try:
             _do_orphan_cleanup(
-                session,
                 subdir=CLOTHING_SUBDIR,
                 referenced=set(
                     f"{ref.file_id}.webp"
@@ -197,7 +196,6 @@ def run_orphan_files_cleanup() -> None:
                 ),
             )
             _do_orphan_cleanup(
-                session,
                 subdir=OUTFIT_SUBDIR,
                 referenced=set(
                     f"{ref.file_id}.webp"
@@ -205,7 +203,6 @@ def run_orphan_files_cleanup() -> None:
                 ),
             )
             _do_orphan_cleanup(
-                session,
                 subdir=PROFILE_PICTURE_SUBDIR,
                 referenced=set(
                     f"{ref.file_id}.webp"
@@ -217,7 +214,7 @@ def run_orphan_files_cleanup() -> None:
             system_queries.release_lock(session, ORPHAN_CLEANUP_LOCK)
 
 
-def _do_orphan_cleanup(session, subdir: str, referenced: set[str]) -> None:
+def _do_orphan_cleanup(subdir: str, referenced: set[str]) -> None:
     directory = _get_static_folder() / subdir
     
     if not directory.exists():
