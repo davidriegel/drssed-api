@@ -1,3 +1,5 @@
+from datetime import datetime
+from app.persistence.schemas.cleanup import FileReference
 from app.core.database import spec, db
 from app.persistence.schemas.user import (
     UserProfile,
@@ -198,3 +200,45 @@ def delete_by_id(user_id: str) -> None:
             "DELETE FROM users WHERE user_id = :user_id",
             {"user_id": user_id},
         )
+        
+def get_inactive_guest_ids(
+    session,
+    cutoff: datetime,
+    limit: int,
+) -> list[UserExistsCheck]:
+    """
+    Returns user_ids of guest accounts inactive since cutoff.
+    """
+    return session.select(
+        """
+        SELECT user_id
+        FROM users
+        WHERE is_guest = TRUE AND last_active_at < :cutoff
+        LIMIT :limit
+        """,
+        {"cutoff": cutoff, "limit": limit},
+        schema_type=UserExistsCheck,
+    )
+
+
+def delete_by_id_in_session(session, user_id: str) -> None:
+    """
+    Deletes a user account by ID, within an externally-managed session.
+    """
+    session.execute(
+        "DELETE FROM users WHERE user_id = :user_id",
+        {"user_id": user_id},
+    )
+
+
+def get_referenced_profile_pictures(session) -> list[FileReference]:
+    """Returns all profile picture filenames currently referenced in users."""
+    return session.select(
+        """
+        SELECT profile_picture AS file_id
+        FROM users
+        WHERE profile_picture IS NOT NULL
+        """,
+        {},
+        schema_type=FileReference,
+    )
