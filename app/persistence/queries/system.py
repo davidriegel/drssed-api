@@ -1,4 +1,22 @@
+from app.core.database import spec, db
 from app.persistence.schemas.cleanup import LockResult
+from pydantic import BaseModel, ConfigDict
+
+
+class _PingResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    ok: int
+
+
+def ping() -> bool:
+    """Runs a trivial SELECT to confirm the database connection is healthy."""
+    with spec.provide_session(db) as session:
+        result = session.select_one_or_none(
+            "SELECT 1 AS ok",
+            {},
+            schema_type=_PingResult,
+        )
+        return result is not None and result.ok == 1
 
 
 def try_acquire_lock(session, lock_name: str) -> bool:
