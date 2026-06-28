@@ -19,7 +19,7 @@ def get_profile_by_id(user_id: str) -> UserProfile | None:
     with spec.provide_session(db) as session:
         return session.select_one_or_none(
             """
-            SELECT user_id, is_guest, username, email, profile_picture, email_verified_at, preferred_language, created_at, last_active_at
+            SELECT user_id, is_guest, username, email, profile_picture, email_verified_at, preferred_language, created_at, updated_at, last_active_at
             FROM users
             WHERE user_id = :user_id
             """,

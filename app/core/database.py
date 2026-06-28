@@ -26,7 +26,7 @@ spec = SQLSpec()
 
 db = spec.add_config(
     PyMysqlConfig(
-        pool_config={
+        connection_config={
             "host": _get_required_env("DATABASE_HOST"),
             "port": int(os.getenv("DATABASE_PORT", "3306")),
             "user": _get_required_env("DATABASE_USERNAME"),
@@ -34,7 +34,6 @@ db = spec.add_config(
             "database": _get_required_env("DATABASE_NAME"),
             "charset": "utf8mb4",
             "autocommit": False,
-            "maxconnections": int(os.getenv("DATABASE_POOL_SIZE", "10")),
         }
     )
 )

@@ -19,6 +19,7 @@ from app.persistence.schemas import user as user_schemas
 from app.persistence.schemas import refresh_token as refresh_token_schemas
 from app.persistence.schemas import email_verification as email_verification_schemas
 from app.utils.exceptions import UnauthorizedError, NotFoundError, ConflictError
+from app.utils.helpers import ensure_utc
 from app.core.logging import get_logger
 
 SECRET_TOKEN_KEY = getenv("SECRET_TOKEN_KEY")
@@ -61,7 +62,7 @@ class AuthenticationManager:
             raise NotFoundError
         
         if email_verification_token.used_at:
-            if email_verification_token.used_at < datetime.now(timezone.utc):
+            if ensure_utc(email_verification_token.used_at) < datetime.now(timezone.utc):
                 return email_verification_token.email
             
         with get_session() as session:
@@ -81,7 +82,7 @@ class AuthenticationManager:
         if not refresh_token_model:
             raise UnauthorizedError
         
-        if refresh_token_model.refresh_token_expiry and refresh_token_model.refresh_token_expiry < datetime.now(timezone.utc):
+        if refresh_token_model.refresh_token_expiry and ensure_utc(refresh_token_model.refresh_token_expiry) < datetime.now(timezone.utc):
             raise UnauthorizedError
         
         user_id = refresh_token_model.user_id

@@ -14,7 +14,7 @@ services:
       - --event-scheduler=ON
       - --mysqlx=OFF
     environment:
-      MYSQL_ROOT_PASSWORD: ${DATABASE_ROOT_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DATABASE_ROOT_PASSWORD:-}
       MYSQL_DATABASE: ${DATABASE_NAME}
       MYSQL_USER: ${DATABASE_USERNAME}
       MYSQL_PASSWORD: ${DATABASE_PASSWORD}
@@ -26,7 +26,7 @@ services:
       - "127.0.0.1:3306:3306"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${DATABASE_ROOT_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "${DATABASE_USERNAME}", "-p${DATABASE_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 10

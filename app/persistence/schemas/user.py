@@ -1,6 +1,8 @@
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
+from app.persistence.schemas.types import UtcDatetime
+
 
 class UserPublicProfile(BaseModel):
     """
@@ -12,7 +14,7 @@ class UserPublicProfile(BaseModel):
     is_guest: bool
     username: str | None
     profile_picture: str | None
-    created_at: datetime
+    created_at: UtcDatetime
 
 
 class UserProfile(BaseModel):
@@ -26,10 +28,11 @@ class UserProfile(BaseModel):
     username: str | None
     email: str | None
     profile_picture: str | None
-    email_verified_at: datetime | None
+    email_verified_at: UtcDatetime | None
     preferred_language: str
-    created_at: datetime
-    last_active_at: datetime | None
+    created_at: UtcDatetime
+    updated_at: UtcDatetime
+    last_active_at: UtcDatetime | None
 
 
 class UserSignIn(BaseModel):
@@ -70,7 +73,7 @@ class UserEmailVerificationStatus(BaseModel):
     
     user_id: str
     email: str
-    email_verified_at: datetime | None
+    email_verified_at: UtcDatetime | None
     preferred_language: str
 
 
