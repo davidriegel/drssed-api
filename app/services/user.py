@@ -1,22 +1,18 @@
 __all__ = ["user_manager"]
 
-import traceback
 import os
-from typing import Optional
-from app.core.database import Database
-from app.utils.exceptions import ValidationError, NotFoundError, ConflictError, UnauthorizedError, UserNotFoundError
-from app.utils.helpers import helper
-from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError
-from mysql.connector.errors import IntegrityError
-from app.models.user import User
 import re
+from typing import Optional
+from app.persistence.queries import user as user_queries
+from app.persistence.schemas import user as user_schemas
+from app.utils.exceptions import ValidationError, NotFoundError, ConflictError, UserNotFoundError
 from app.core.logging import get_logger
+from argon2 import PasswordHasher
 
 logger = get_logger()
 
 class UserManager:
-    def upgrade_guest_account(self, user_id: str, password: str, profile_picture: str, email: Optional[str], username: Optional[str]) -> User:
+    def upgrade_guest_account(self, user_id: str, password: str, profile_picture: str, email: Optional[str], username: Optional[str]) -> user_schemas.UserProfile:
         if len(password) < 8:
             raise ValidationError
         
@@ -32,6 +28,9 @@ class UserManager:
             
             if not re.match(r"^[^@]+@[^@]+\.[^@]+$", email):
                 raise ValidationError
+            
+            if user_queries.email_exists(email):
+                raise ConflictError(field="email")
         else:
             email = None
                 
@@ -42,70 +41,43 @@ class UserManager:
                 raise ValidationError
             if len(username) > 20:
                 raise ValidationError
+            
+            if not re.match(r"^[a-zA-Z0-9_]+$", username):
+                raise ValidationError
+
+            if user_queries.username_exists(username):
+                raise ConflictError(field="username")
         else:
             username = None
         
         hashed_password = PasswordHasher().hash(password)
         
-        try:
-            with Database.getConnection() as conn:
-                cursor = conn.cursor(dictionary=True)
-                cursor.execute("UPDATE users SET is_guest = FALSE, email = %s, username = %s, password_hash = %s, profile_picture = %s WHERE user_id = %s AND is_guest = TRUE;", (email, username, hashed_password, profile_picture, user_id))
-                
-                if cursor.rowcount == 0:
-                    raise NotFoundError
-                
-                cursor.execute("SELECT user_id, is_guest, username, email, email_verified_at, created_at, updated_at, profile_picture FROM users WHERE user_id = %s;", (user_id,))
-                db_user = cursor.fetchone()
-
-                user = User.from_dict(helper.ensure_dict(db_user))
-                
-                conn.commit()
-        except IntegrityError as e:
-            if e.msg and "email" in e.msg:
-                raise ConflictError(field="email")
-            elif e.msg and "username" in e.msg:
-                raise ConflictError(field="username")
-            else:
-                raise e
+        user_queries.upgrade_guest_account(user_id, hashed_password, profile_picture, email, username)
+        
+        user = user_queries.get_profile_by_id(user_id)
+        
+        if not user:
+            raise UserNotFoundError
         
         return user
         
-    def get_public_user_profile_by_id(self, user_id: str) -> User:
-        try:
-            with Database.getConnection() as conn:
-                cursor = conn.cursor(dictionary=True)
-                cursor.execute("SELECT user_id, is_guest, created_at, NULL as updated_at, username, NULL as email, profile_picture FROM users WHERE user_id = %s;", (user_id, ))
-                db_user = helper.ensure_dict(cursor.fetchone())
-                
-                user = User.from_dict(db_user)
-                
-                return user
-        except Exception as e:
-            logger.error(f"An unexpected error occurred while getting user profile from database: {e}")
-            logger.error(traceback.format_exc())
-            raise e
+    def get_public_user_profile_by_id(self, user_id: str) -> user_schemas.UserPublicProfile:
+        user = user_queries.get_public_profile_by_id(user_id)
+            
+        if not user:
+            raise NotFoundError()
         
-    def get_private_user_profile_by_id(self, user_id: str) -> User:
-        try:
-            with Database.getConnection() as conn:
-                cursor = conn.cursor(dictionary=True)
-                cursor.execute("SELECT user_id, is_guest, created_at, updated_at, username, email, email_verified_at, profile_picture FROM users WHERE user_id = %s;", (user_id, ))
-                db_user = helper.ensure_dict(cursor.fetchone())
-                
-                user = User.from_dict(db_user)
-                
-                return user
-        except Exception as e:
-            logger.error(f"An unexpected error occurred while getting user profile from database: {e}")
-            logger.error(traceback.format_exc())
-            raise e
+        return user
+        
+    def get_private_user_profile_by_id(self, user_id: str) -> user_schemas.UserProfile:
+        user = user_queries.get_profile_by_id(user_id)
+            
+        if not user:
+            raise NotFoundError()
+        
+        return user
         
     def delete_account_by_id(self, user_id: str) -> None:
-        with Database.getConnection() as conn:
-            cursor = conn.cursor()
-            
-            cursor.execute("DELETE FROM users WHERE user_id = %s;", (user_id, ))
-            conn.commit()
+        user_queries.delete_by_id(user_id)
 
 user_manager = UserManager()

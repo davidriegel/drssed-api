@@ -34,7 +34,7 @@ def register_guest():
     token = authentication_manager.register_guest(preferred_language=g.preferred_language)
     g.user_id = authentication_manager.get_user_id_from_token(token.access_token)
 
-    return jsonify(token.to_dict()), 201
+    return jsonify(token.model_dump(mode='json')), 201
 
 @auth.route('/refresh', methods=['POST'])
 @limiter.limit('5 per minute')
@@ -48,7 +48,7 @@ def refresh_access_token():
     token = authentication_manager.refresh_access_token(refresh_token)
     g.user_id = authentication_manager.get_user_id_from_token(token.access_token)
 
-    return jsonify(token.to_dict()), 200
+    return jsonify(token.model_dump(mode='json')), 200
 
 @auth.route('/logout', methods=['POST'])
 @limiter.limit('2 per minute')
@@ -78,4 +78,4 @@ def login():
     token = authentication_manager.sign_in_user(email, username, password)
     g.user_id = authentication_manager.get_user_id_from_token(token.access_token)
     
-    return jsonify(token.to_dict())
+    return jsonify(token.model_dump(mode='json')), 200

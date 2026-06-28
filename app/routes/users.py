@@ -36,7 +36,7 @@ def upgrade_guest():
     
     new_tokens = authentication_manager.sign_in_user(email, username, password)
     
-    return jsonify({"user": user.to_dict(), "token": new_tokens.to_dict()}), 201
+    return jsonify({"user": user.model_dump(mode='json'), "token": new_tokens.model_dump(mode='json')}), 201
 
 @users.route("/me/clothing/sync", methods=["GET"])
 @limiter.limit('5 per minute')
@@ -237,4 +237,4 @@ def delete_account():
 @limiter.limit('3 per minute')
 def get_current_user():
     user = user_manager.get_private_user_profile_by_id(g.user_id)
-    return jsonify({"user": user.to_dict()}), 200
+    return jsonify({"user": user.model_dump(mode='json')}), 200

@@ -1,69 +1,69 @@
-from sys import exit
-from time import perf_counter
-from mysql.connector import pooling, MySQLConnection
+__all__ = ["spec", "db", "get_session"]
+
+import os
+from contextlib import contextmanager
+from typing import Generator
+
+from sqlspec import SQLSpec
+from sqlspec.adapters.pymysql import PyMysqlConfig
+
 from app.core.logging import get_logger
-from os import getenv
 
 logger = get_logger()
 
-class Database:
-    _pool: pooling.MySQLConnectionPool = None
-    
-    @classmethod
-    def getConnection(cls) -> MySQLConnection:
-        if cls._pool is None:
-            
-            
-            try:
-                cls._pool = pooling.MySQLConnectionPool(
-                    pool_name="connectionPool",
-                    pool_size=5,
-                    host=getenv("DATABASE_HOST", "localhost"),
-                    port=getenv("DATABASE_PORT", "3306"),
-                    user=getenv("DATABASE_USERNAME"),
-                    password=getenv("DATABASE_PASSWORD"),
-                    database=getenv("DATABASE_NAME")
-                )
-                
-                connection = cls._pool.get_connection()
-                connection.ping()
-                connection.close()
-                
-                logger.debug(f"Successfully created database connection pool.")
-            except Exception as e:
-                logger.critical(f"Failed to create database connection pool: {e}")
-                exit(1)
 
-        return cls._pool.get_connection()
+def _get_required_env(key: str) -> str:
+    value = os.getenv(key)
+    if not value:
+        raise RuntimeError(
+            f"Required environment variable '{key}' is not set. "
+            f"Check your .env file or docker-compose configuration."
+        )
+    return value
+
+
+spec = SQLSpec()
+
+db = spec.add_config(
+    PyMysqlConfig(
+        connection_config={
+            "host": _get_required_env("DATABASE_HOST"),
+            "port": int(os.getenv("DATABASE_PORT", "3306")),
+            "user": _get_required_env("DATABASE_USERNAME"),
+            "password": _get_required_env("DATABASE_PASSWORD"),
+            "database": _get_required_env("DATABASE_NAME"),
+            "charset": "utf8mb4",
+            "autocommit": False,
+        }
+    )
+)
+
+
+@contextmanager
+def get_session() -> Generator:
+    """
+    Provide a database session with automatic commit/rollback.
     
-    @classmethod
-    def health(cls) -> dict:
-        start = perf_counter()
-        connection = None
-        cursor = None
-        try:
-            connection = cls.getConnection()
-            cursor = connection.cursor()
-            cursor.execute("SELECT 1")
-            cursor.fetchone()
-            return {
-                "status": "ok",
-                "latency_ms": round((perf_counter() - start) * 1000, 2),
-            }
-        except Exception as exc:
-            logger.warning(f"Database health check failed: {exc}")
-            return {
-                "status": "error",
-                "latency_ms": round((perf_counter() - start) * 1000, 2),
-            }
-        finally:
-            if cursor is not None:
-                try:
-                    cursor.close()
-                except Exception:
-                    pass
-            if connection is not None:
-                try:
-                    connection.close()
-                except Exception:
-                    pass
+    Use for write operations or multi-statement transactions:
+    
+        with get_session() as session:
+            session.execute("INSERT INTO ...", params)
+            session.execute("INSERT INTO ...", params)
+            # auto-commits if no exception, rolls back otherwise
+    """
+    session = None
+    try:
+        with spec.provide_session(db) as session:
+            yield session
+            session.commit()
+    except Exception as e:
+        if session is not None:
+            try:
+                session.rollback()
+            except Exception as rollback_error:
+                logger.error(
+                    f"Failed to rollback transaction: {rollback_error}",
+                    exc_info=True,
+                )
+        logger.error(f"Database session failed: {e}", exc_info=True)
+        raise

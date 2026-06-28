@@ -58,7 +58,7 @@ def init_scheduler(app) -> None:
 def register_job(job: JobSpec) -> None:
     """
     Register a job with the scheduler. The function will automatically be wrapped
-    in the Flask app context, so services can use current_app, Database, etc.
+    in the Flask app context, so services can use current_app and the sqlspec session helpers.
     
     :param job: The job specification
     """
