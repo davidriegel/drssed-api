@@ -12,6 +12,7 @@ from app.persistence.schemas.clothing import (
     ClothingSeasonRow,
     ClothingTagRow,
 )
+from app.models.clothing import ClothingSubCategory
 
 
 # Cleanup helpers
@@ -22,7 +23,7 @@ def get_image_ids_for_user(session, user_id: str) -> list[FileReference]:
         """
         SELECT image_id AS file_id
         FROM clothing
-        WHERE user_id = :user_id AND image_id IS NOT NULL
+        WHERE user_id = :user_id
         """,
         {"user_id": user_id},
         schema_type=FileReference,
@@ -35,7 +36,6 @@ def get_all_referenced_image_ids(session) -> list[FileReference]:
         """
         SELECT image_id AS file_id
         FROM clothing
-        WHERE image_id IS NOT NULL
         """,
         {},
         schema_type=FileReference,
@@ -313,13 +313,23 @@ def update_fields(session, clothing_id: str, fields: dict) -> None:
     if not fields:
         return
 
-    allowed_fields = {"name", "color", "image_id", "category", "description"}
+    allowed_fields = {"name", "color", "image_id", "sub_category", "description"}
     set_clauses = []
     params: dict = {"clothing_id": clothing_id}
 
     for key, value in fields.items():
         if key not in allowed_fields:
             raise ValueError(f"Unknown clothing field: {key}")
+
+        if key == "sub_category":
+            if not isinstance(value, str) and not value.upper() in ClothingSubCategory.__members__:
+                raise ValueError(f"Invalid sub category: {value}")
+
+            category = ClothingSubCategory.__members__[value.upper()].category
+
+            set_clauses.append(f"category = :category")
+            params["category"] = category
+
         set_clauses.append(f"{key} = :{key}")
         params[key] = value
 

@@ -8,7 +8,7 @@ class ClothingNameMissingError(ClothingValidationError):
     def __init__(self, message="Clothing name is missing"):
         super().__init__(message)
         
-class ClothingCategoryMissingError(ClothingValidationError):
+class ClothingSubCategoryMissingError(ClothingValidationError):
     def __init__(self, message="Clothing category is missing"):
         super().__init__(message)
         

@@ -15,7 +15,7 @@ from app.persistence.queries import clothing as clothing_queries
 from app.persistence.queries import outfit as outfit_queries
 from app.services.image import image_manager
 from app.utils.exceptions import (
-    ClothingCategoryMissingError,
+    ClothingSubCategoryMissingError,
     ClothingColorMissingError,
     ClothingDescriptionTooLongError,
     ClothingIDMissingError,
@@ -65,7 +65,6 @@ class ClothingManager:
         self,
         user_id: str,
         name: str,
-        category: ClothingCategory,
         sub_category: ClothingSubCategory,
         image_id: str,
         color: str,
@@ -92,7 +91,7 @@ class ClothingManager:
             clothing_id,
             True,
             name,
-            category,
+            sub_category.category,
             sub_category,
             color,
             datetime.now(timezone.utc),
@@ -110,7 +109,7 @@ class ClothingManager:
                     clothing_id=clothing.clothing_id,
                     is_public=clothing.is_public,
                     name=clothing.name,
-                    category=clothing.category.name,
+                    category=clothing.sub_category.category.name,
                     sub_category=clothing.sub_category.name,
                     image_id=clothing.image_id,
                     user_id=clothing.user_id,
@@ -205,7 +204,7 @@ class ClothingManager:
         user_id: str,
         clothing_id: str,
         name: Optional[str] = None,
-        category: Optional[str] = None,
+        sub_category: Optional[str] = None,
         description: Optional[str] = None,
         color: Optional[str] = None,
         seasons: Optional[list[str]] = None,
@@ -251,13 +250,13 @@ class ClothingManager:
                     fields["image_id"] = image_id
                     image_manager.move_preview_image_to_permanent(image_id)
 
-                if isinstance(category, str):
-                    if category.upper() not in ClothingCategory.__members__:
-                        raise ClothingCategoryMissingError(
-                            "The provided category is not valid. It should be one of the following: "
-                            + ", ".join(ClothingCategory.__members__.keys())
+                if isinstance(sub_category, str):
+                    if sub_category.upper() not in ClothingSubCategory.__members__:
+                        raise ClothingSubCategoryMissingError(
+                            "The provided sub category is not valid. It should be one of the following: "
+                            + ", ".join(ClothingSubCategory.__members__.keys())
                         )
-                    fields["category"] = category.upper()
+                    fields["sub_category"] = sub_category.upper()
 
                 if description is not None and description != current.description:
                     if len(description) > 255:

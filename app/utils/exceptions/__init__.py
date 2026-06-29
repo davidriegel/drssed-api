@@ -21,7 +21,7 @@ from app.utils.exceptions.validation import UnsupportedFileTypeError, FileTooLar
 from app.utils.exceptions.clothing import (
     ClothingIDMissingError,
     ClothingNameMissingError,
-    ClothingCategoryMissingError,
+    ClothingSubCategoryMissingError,
     ClothingColorMissingError,
     ClothingImageMissingError,
     ClothingNameTooShortError,
@@ -79,7 +79,7 @@ __all__ = [
     "FileTooLargeError",
     "ImageUnclearError",
     "ClothingNameMissingError",
-    "ClothingCategoryMissingError",
+    "ClothingSubCategoryMissingError",
     "ClothingColorMissingError",
     "ClothingIDMissingError",
     "ClothingImageMissingError",
