@@ -27,6 +27,7 @@ from app.routes.static import static
 from app.routes.clothing import clothing
 from app.routes.images import images
 from app.routes.outfits import outfits
+from app.routes.taxonomy import taxonomy
 
 api = Flask("Drssed API", static_folder="app/static", static_url_path="/static", template_folder="app/templates")
 
@@ -116,6 +117,7 @@ def register_blueprints():
     api.register_blueprint(static, url_prefix="/static")
     api.register_blueprint(images, url_prefix="/images")
     api.register_blueprint(outfits, url_prefix="/outfits")
+    api.register_blueprint(taxonomy, url_prefix="/taxonomy")
 
     logger.info("Blueprint routes registered successfully")
 
