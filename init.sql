@@ -61,8 +61,6 @@ CREATE TABLE
     image_id VARCHAR(36) NOT NULL,
     color CHAR(7) NOT NULL,
     description VARCHAR(255) NULL,
-    warmth_level TINYINT NULL,
-    formality_level TINYINT NULL,
     is_public TINYINT(1) NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -72,34 +70,6 @@ CREATE TABLE
     KEY idx_clothing_user_cat_deleted (user_id, category, deleted_at),
     CONSTRAINT fk_clothing_user 
         FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    CONSTRAINT chk_clothing_warmth 
-        CHECK (warmth_level IS NULL OR (warmth_level BETWEEN 1 AND 5)),
-    CONSTRAINT chk_clothing_formality 
-        CHECK (formality_level IS NULL OR (formality_level BETWEEN 1 AND 5))
-) ENGINE=InnoDB;
-
-CREATE TABLE
-    IF NOT EXISTS clothing_ml (
-    clothing_id VARCHAR(36) NOT NULL,
-    embedding BLOB NOT NULL,
-    embedding_model_version VARCHAR(20) NOT NULL,
-    computed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (clothing_id),
-    CONSTRAINT fk_clothing_ml_clothing 
-        FOREIGN KEY (clothing_id) REFERENCES clothing(clothing_id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
-CREATE TABLE
-    IF NOT EXISTS clothing_colors (
-    clothing_id VARCHAR(36) NOT NULL,
-    color_rank TINYINT NOT NULL,
-    hex CHAR(7) NOT NULL,
-    ratio FLOAT NOT NULL,
-    PRIMARY KEY (clothing_id, color_rank),
-    CONSTRAINT fk_clothing_colors_clothing 
-        FOREIGN KEY (clothing_id) REFERENCES clothing(clothing_id) ON DELETE CASCADE,
-    CONSTRAINT chk_clothing_colors_ratio 
-        CHECK (ratio >= 0 AND ratio <= 1)
 ) ENGINE=InnoDB;
 
 CREATE TABLE
@@ -118,48 +88,6 @@ CREATE TABLE
     PRIMARY KEY (clothing_id, season),
     CONSTRAINT fk_clothing_seasons_clothing 
         FOREIGN KEY (clothing_id) REFERENCES clothing(clothing_id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
--- -----------------------------------------------------------------------------
--- Clothing Upload Staging
--- -----------------------------------------------------------------------------
-
-CREATE TABLE
-    IF NOT EXISTS clothing_uploads (
-    upload_id VARCHAR(36) NOT NULL,
-    user_id VARCHAR(36) NOT NULL,
-    image_id VARCHAR(36) NOT NULL,
-    detected_category VARCHAR(50) NOT NULL,
-    detected_sub_category VARCHAR(50) NOT NULL,
-    embedding BLOB NOT NULL,
-    embedding_model_version VARCHAR(20) NOT NULL,
-    suggested_warmth TINYINT NULL,
-    suggested_formality TINYINT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP NOT NULL,
-    committed_at TIMESTAMP NULL,
-    PRIMARY KEY (upload_id),
-    KEY idx_clothing_uploads_user (user_id),
-    KEY idx_clothing_uploads_expires (expires_at),
-    CONSTRAINT fk_clothing_uploads_user 
-        FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-    CONSTRAINT chk_uploads_warmth 
-        CHECK (suggested_warmth IS NULL OR (suggested_warmth BETWEEN 1 AND 5)),
-    CONSTRAINT chk_uploads_formality 
-        CHECK (suggested_formality IS NULL OR (suggested_formality BETWEEN 1 AND 5))
-) ENGINE=InnoDB;
-
-CREATE TABLE
-    IF NOT EXISTS clothing_upload_colors (
-    upload_id VARCHAR(36) NOT NULL,
-    color_rank TINYINT NOT NULL,
-    hex CHAR(7) NOT NULL,
-    ratio FLOAT NOT NULL,
-    PRIMARY KEY (upload_id, color_rank),
-    CONSTRAINT fk_upload_colors_upload 
-        FOREIGN KEY (upload_id) REFERENCES clothing_uploads(upload_id) ON DELETE CASCADE,
-    CONSTRAINT chk_upload_colors_ratio 
-        CHECK (ratio >= 0 AND ratio <= 1)
 ) ENGINE=InnoDB;
 
 -- -----------------------------------------------------------------------------
