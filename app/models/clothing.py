@@ -37,6 +37,32 @@ class ClothingSubCategory(str, Enum):
     # ONE_PIECE
     DRESS = "DRESS"
 
+    @property
+    def category(self) -> "ClothingCategory":
+        return _SUBCATEGORY_PARENTS[self]
+
+
+_SUBCATEGORY_PARENTS: dict[ClothingSubCategory, ClothingCategory] = {
+    ClothingSubCategory.T_SHIRT: ClothingCategory.TOP,
+    ClothingSubCategory.SHIRT: ClothingCategory.TOP,
+    ClothingSubCategory.POLO_SHIRT: ClothingCategory.TOP,
+    ClothingSubCategory.SWEATER: ClothingCategory.TOP,
+    ClothingSubCategory.HOODIE: ClothingCategory.TOP,
+
+    ClothingSubCategory.JEANS: ClothingCategory.BOTTOM,
+    ClothingSubCategory.TROUSERS: ClothingCategory.BOTTOM,
+    ClothingSubCategory.SHORTS: ClothingCategory.BOTTOM,
+    ClothingSubCategory.SKIRT: ClothingCategory.BOTTOM,
+
+    ClothingSubCategory.JACKET: ClothingCategory.JACKET,
+    ClothingSubCategory.DENIM_JACKET: ClothingCategory.JACKET,
+    ClothingSubCategory.SPORTS_JACKET: ClothingCategory.JACKET,
+    ClothingSubCategory.COAT: ClothingCategory.JACKET,
+    ClothingSubCategory.BLAZER: ClothingCategory.JACKET,
+
+    ClothingSubCategory.DRESS: ClothingCategory.ONE_PIECE
+}
+
 @dataclass
 class Clothing:
     clothing_id: str
