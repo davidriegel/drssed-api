@@ -12,7 +12,7 @@ from pathlib import Path
 from apscheduler.triggers.cron import CronTrigger
 from flask import current_app
 
-from app.core.database import spec, db
+from app.core.database import get_session
 from app.core.logging import get_logger
 from app.core.scheduler import JobSpec
 from app.persistence.queries import clothing as clothing_queries
@@ -50,7 +50,7 @@ def _get_static_folder() -> Path:
 
 def run_guest_cleanup() -> None:
     """Deletes inactive guest accounts and their associated files."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         if not system_queries.try_acquire_lock(session, GUEST_CLEANUP_LOCK):
             logger.debug("Guest cleanup skipped: lock held by another worker")
             return
@@ -182,7 +182,7 @@ def run_temp_cleanup() -> None:
 
 def run_orphan_files_cleanup() -> None:
     """Deletes image files on disk that aren't referenced in the database."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         if not system_queries.try_acquire_lock(session, ORPHAN_CLEANUP_LOCK):
             logger.debug("Orphan files cleanup skipped: lock held by another worker")
             return

@@ -1,4 +1,4 @@
-from app.core.database import spec, db
+from app.core.database import get_session
 from app.persistence.schemas.cleanup import LockResult
 from pydantic import BaseModel, ConfigDict
 
@@ -10,7 +10,7 @@ class _PingResult(BaseModel):
 
 def ping() -> bool:
     """Runs a trivial SELECT to confirm the database connection is healthy."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         result = session.select_one_or_none(
             "SELECT 1 AS ok",
             {},

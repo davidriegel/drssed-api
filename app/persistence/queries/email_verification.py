@@ -1,10 +1,10 @@
-from app.core.database import spec, db
+from app.core.database import get_session
 from app.persistence.schemas.email_verification import EmailVerificationToken
 
 
 def get_by_token(token: str) -> EmailVerificationToken | None:
     """Retrieves a non-expired email verification token by its token string."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         return session.select_one_or_none(
             """
             SELECT token, email, user_id, expires_at, used_at

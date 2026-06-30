@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from app.core.database import spec, db
+from app.core.database import get_session
 from app.persistence.schemas.cleanup import FileReference
 from app.persistence.schemas.outfit import (
     OutfitClothingRow,
@@ -43,7 +43,7 @@ def get_all_outfit_ids(session) -> list[FileReference]:
 
 def get_by_id_for_user(user_id: str, outfit_id: str) -> OutfitRow | None:
     """Fetches a single active outfit row owned by the given user."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         return session.select_one_or_none(
             """
             SELECT outfit_id, is_public, is_favorite, name, description, created_at, updated_at, user_id
@@ -57,7 +57,7 @@ def get_by_id_for_user(user_id: str, outfit_id: str) -> OutfitRow | None:
 
 def get_seasons_by_outfit_id(outfit_id: str) -> list[OutfitSeasonRow]:
     """Fetches season names attached to an outfit."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         return session.select(
             "SELECT season FROM outfit_seasons WHERE outfit_id = :outfit_id",
             {"outfit_id": outfit_id},
@@ -67,7 +67,7 @@ def get_seasons_by_outfit_id(outfit_id: str) -> list[OutfitSeasonRow]:
 
 def get_tags_by_outfit_id(outfit_id: str) -> list[OutfitTagRow]:
     """Fetches tag names attached to an outfit."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         return session.select(
             "SELECT tag FROM outfit_tags WHERE outfit_id = :outfit_id",
             {"outfit_id": outfit_id},
@@ -77,7 +77,7 @@ def get_tags_by_outfit_id(outfit_id: str) -> list[OutfitTagRow]:
 
 def get_clothing_canvas(outfit_id: str) -> list[OutfitClothingRow]:
     """Fetches the canvas placement rows for an outfit, ordered by z-index."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         return session.select(
             """
             SELECT clothing_id, position_x, position_y, z_index, scale, rotation
@@ -92,7 +92,7 @@ def get_clothing_canvas(outfit_id: str) -> list[OutfitClothingRow]:
 
 def get_updated_since(user_id: str, updated_since: datetime) -> list[OutfitRow]:
     """Fetches outfits updated since the given timestamp for sync."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         return session.select(
             """
             SELECT outfit_id, is_public, is_favorite, name, description, created_at, updated_at, user_id
@@ -107,7 +107,7 @@ def get_updated_since(user_id: str, updated_since: datetime) -> list[OutfitRow]:
 
 def get_deleted_ids_since(user_id: str, updated_since: datetime) -> list[OutfitIdRow]:
     """Fetches outfit IDs soft-deleted since the given timestamp for sync."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         return session.select(
             """
             SELECT outfit_id
@@ -135,7 +135,7 @@ def list_for_user(
 
     where_clause = " AND ".join(conditions)
 
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         count_row = session.select_one_or_none(
             f"SELECT COUNT(*) AS total FROM outfits WHERE {where_clause}",
             params,

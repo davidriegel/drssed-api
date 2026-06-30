@@ -1,6 +1,6 @@
 from datetime import datetime
 from app.persistence.schemas.cleanup import FileReference
-from app.core.database import spec, db
+from app.core.database import get_session
 from app.persistence.schemas.user import (
     UserProfile,
     UserPublicProfile,
@@ -16,7 +16,7 @@ from app.persistence.schemas.user import (
 
 def get_profile_by_id(user_id: str) -> UserProfile | None:
     """Fetches full profile information for a user by their ID."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         return session.select_one_or_none(
             """
             SELECT user_id, is_guest, username, email, profile_picture, email_verified_at, preferred_language, created_at, updated_at, last_active_at
@@ -30,7 +30,7 @@ def get_profile_by_id(user_id: str) -> UserProfile | None:
 
 def get_public_profile_by_id(user_id: str) -> UserPublicProfile | None:
     """Fetches public profile information for a user by their ID."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         return session.select_one_or_none(
             """
             SELECT user_id, is_guest, username, profile_picture, created_at
@@ -44,7 +44,7 @@ def get_public_profile_by_id(user_id: str) -> UserPublicProfile | None:
 
 def get_for_login_by_email(email: str) -> UserSignIn | None:
     """Retrieves user_id and password hash needed for login by email."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         return session.select_one_or_none(
             """
             SELECT user_id, password_hash
@@ -58,7 +58,7 @@ def get_for_login_by_email(email: str) -> UserSignIn | None:
 
 def get_for_login_by_username(username: str) -> UserSignIn | None:
     """Retrieves user_id and password hash needed for login by username."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         return session.select_one_or_none(
             """
             SELECT user_id, password_hash
@@ -72,7 +72,7 @@ def get_for_login_by_username(username: str) -> UserSignIn | None:
 
 def get_guest_status(user_id: str) -> UserGuestStatus | None:
     """Checks if a user is a guest."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         return session.select_one_or_none(
             """
             SELECT user_id, is_guest
@@ -86,7 +86,7 @@ def get_guest_status(user_id: str) -> UserGuestStatus | None:
 
 def get_email_verification_status(user_id: str) -> UserEmailVerificationStatus | None:
     """Fetches email verification status for a user."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         return session.select_one_or_none(
             """
             SELECT user_id, email, email_verified_at, preferred_language
@@ -100,7 +100,7 @@ def get_email_verification_status(user_id: str) -> UserEmailVerificationStatus |
 
 def email_exists(email: str) -> bool:
     """Checks whether a given email is already registered."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         result = session.select_one_or_none(
             "SELECT user_id FROM users WHERE email = :email LIMIT 1",
             {"email": email},
@@ -111,7 +111,7 @@ def email_exists(email: str) -> bool:
 
 def username_exists(username: str) -> bool:
     """Checks whether a given username is already taken."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         result = session.select_one_or_none(
             "SELECT user_id FROM users WHERE username = :username LIMIT 1",
             {"username": username},
@@ -124,7 +124,7 @@ def username_exists(username: str) -> bool:
 
 def create(user: UserCreate) -> None:
     """Inserts a new user into the database."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         session.execute(
             """
             INSERT INTO users (user_id, is_guest, username, email, profile_picture, password_hash, apple_user_id, preferred_language)
@@ -142,7 +142,7 @@ def upgrade_guest_account(
     username: str | None,
 ) -> None:
     """Converts a guest account to a regular account."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         session.execute(
             """
             UPDATE users
@@ -165,7 +165,7 @@ def upgrade_guest_account(
 
 def update_last_active_at(user_id: str) -> None:
     """Updates the last_active_at timestamp for a user to now."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         session.execute(
             """
             UPDATE users
@@ -195,7 +195,7 @@ def mark_email_as_verified(session, user_id: str) -> None:
 
 def delete_by_id(user_id: str) -> None:
     """Deletes a user account by their ID."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         session.execute(
             "DELETE FROM users WHERE user_id = :user_id",
             {"user_id": user_id},

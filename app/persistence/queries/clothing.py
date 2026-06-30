@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from app.core.database import spec, db
+from app.core.database import get_session
 from app.persistence.schemas.cleanup import FileReference
 from app.persistence.schemas.clothing import (
     AffectedOutfitRow,
@@ -46,7 +46,7 @@ def get_all_referenced_image_ids(session) -> list[FileReference]:
 
 def get_by_id(user_id: str, clothing_id: str) -> ClothingRow | None:
     """Fetches a single clothing row for a given user."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         return session.select_one_or_none(
             """
             SELECT clothing_id, is_public, name, category, sub_category, color, description, created_at, user_id, image_id
@@ -60,7 +60,7 @@ def get_by_id(user_id: str, clothing_id: str) -> ClothingRow | None:
 
 def get_seasons_by_clothing_id(clothing_id: str) -> list[ClothingSeasonRow]:
     """Fetches season names attached to a clothing item."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         return session.select(
             "SELECT season FROM clothing_seasons WHERE clothing_id = :clothing_id",
             {"clothing_id": clothing_id},
@@ -70,7 +70,7 @@ def get_seasons_by_clothing_id(clothing_id: str) -> list[ClothingSeasonRow]:
 
 def get_tags_by_clothing_id(clothing_id: str) -> list[ClothingTagRow]:
     """Fetches tag names attached to a clothing item."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         return session.select(
             "SELECT tag FROM clothing_tags WHERE clothing_id = :clothing_id",
             {"clothing_id": clothing_id},
@@ -80,7 +80,7 @@ def get_tags_by_clothing_id(clothing_id: str) -> list[ClothingTagRow]:
 
 def get_updated_since(user_id: str, updated_since: datetime) -> list[ClothingRow]:
     """Fetches clothes updated since the given timestamp for sync."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         return session.select(
             """
             SELECT clothing_id, is_public, name, category, sub_category, color, description, created_at, user_id, image_id
@@ -95,7 +95,7 @@ def get_updated_since(user_id: str, updated_since: datetime) -> list[ClothingRow
 
 def get_deleted_ids_since(user_id: str, updated_since: datetime) -> list[ClothingIdRow]:
     """Fetches clothing IDs soft-deleted since the given timestamp for sync."""
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         return session.select(
             """
             SELECT clothing_id
@@ -159,7 +159,7 @@ def list_for_user(
         LIMIT :limit OFFSET :offset
     """
 
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         return session.select(sql, params, schema_type=ClothingRow)
 
 
@@ -174,7 +174,7 @@ def get_seasons_by_clothing_ids(clothing_ids: list[str]) -> list[ClothingIdSeaso
         placeholders.append(f":{key}")
         params[key] = cid
     sql = f"SELECT clothing_id, season FROM clothing_seasons WHERE clothing_id IN ({', '.join(placeholders)})"
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         return session.select(sql, params, schema_type=ClothingIdSeasonRow)
 
 
@@ -189,7 +189,7 @@ def get_tags_by_clothing_ids(clothing_ids: list[str]) -> list[ClothingIdTagRow]:
         placeholders.append(f":{key}")
         params[key] = cid
     sql = f"SELECT clothing_id, tag FROM clothing_tags WHERE clothing_id IN ({', '.join(placeholders)})"
-    with spec.provide_session(db) as session:
+    with get_session() as session:
         return session.select(sql, params, schema_type=ClothingIdTagRow)
 
 
