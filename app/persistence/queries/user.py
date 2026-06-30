@@ -70,6 +70,20 @@ def get_for_login_by_username(username: str) -> UserSignIn | None:
         )
 
 
+def get_password_hash_by_id(user_id: str) -> UserSignIn | None:
+    """Retrieves the password hash for the given user_id."""
+    with get_session() as session:
+        return session.select_one_or_none(
+            """
+            SELECT user_id, password_hash
+            FROM users
+            WHERE user_id = :user_id
+            """,
+            {"user_id": user_id},
+            schema_type=UserSignIn,
+        )
+
+
 def get_guest_status(user_id: str) -> UserGuestStatus | None:
     """Checks if a user is a guest."""
     with get_session() as session:
@@ -176,21 +190,38 @@ def update_last_active_at(user_id: str) -> None:
         )
 
 
-def mark_email_as_verified(session, user_id: str) -> None:
+def mark_email_as_verified(session, user_id: str, email: str) -> None:
     """
-    Marks a user's email as verified.
-    
+    Sets the user's email to the verified address and marks it verified.
+
     Session-parameter version: meant to be called inside a transaction
     that also marks the corresponding email verification token as used.
+
+    Setting `email` from the verification token is what makes the change-email
+    flow work: the new address is only persisted once the user proves control.
     """
     session.execute(
         """
         UPDATE users
-        SET email_verified_at = CURRENT_TIMESTAMP
+        SET email = :email,
+            email_verified_at = CURRENT_TIMESTAMP
         WHERE user_id = :user_id
         """,
-        {"user_id": user_id},
+        {"user_id": user_id, "email": email},
     )
+
+
+def update_password_hash(user_id: str, password_hash: str) -> None:
+    """Updates the password hash for a user."""
+    with get_session() as session:
+        session.execute(
+            """
+            UPDATE users
+            SET password_hash = :password_hash
+            WHERE user_id = :user_id
+            """,
+            {"user_id": user_id, "password_hash": password_hash},
+        )
 
 
 def delete_by_id(user_id: str) -> None:

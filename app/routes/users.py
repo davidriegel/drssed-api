@@ -218,12 +218,50 @@ def create_clothing_piece():
 
     return jsonify({"clothing": clothing.to_dict()}), 201
 
+@users.route('/me/password', methods=['PATCH'])
+@authorize_request
+@limiter.limit('5 per minute', key_func=lambda: str(g.user_id))
+def change_password():
+    if g.is_guest:
+        raise ConflictError
+
+    data: dict = request.get_json() or {}
+
+    current_password = data.get("current_password")
+    new_password = data.get("new_password")
+
+    if not current_password or not new_password:
+        raise ValidationError
+
+    token = authentication_manager.change_password(g.user_id, current_password, new_password)
+
+    return jsonify({"token": token.model_dump(mode='json')}), 200
+
+@users.route('/me/email', methods=['PATCH'])
+@authorize_request
+@limiter.limit('3 per hour', key_func=lambda: str(g.user_id))
+def change_email():
+    if g.is_guest:
+        raise ConflictError
+
+    data: dict = request.get_json() or {}
+
+    current_password = data.get("current_password")
+    new_email = data.get("new_email")
+
+    if not current_password or not new_email:
+        raise ValidationError
+
+    pending_email = authentication_manager.request_email_change(g.user_id, current_password, new_email, g.preferred_language)
+
+    return jsonify({"pending_email": pending_email}), 202
+
 @users.route('/me', methods=['DELETE'])
 @limiter.limit('1 per minute')
 @authorize_request
 def delete_account():
     user_manager.delete_account_by_id(g.user_id)
-    
+
     return jsonify({}), 204
 
 @users.route('/me', methods=['GET'])

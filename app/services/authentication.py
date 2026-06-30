@@ -1,5 +1,6 @@
 __all__ = ["authentication_manager"]
 
+import re
 import secrets
 import uuid
 import jwt
@@ -18,7 +19,7 @@ from app.persistence.queries import email_verification as email_verification_que
 from app.persistence.schemas import user as user_schemas
 from app.persistence.schemas import refresh_token as refresh_token_schemas
 from app.persistence.schemas import email_verification as email_verification_schemas
-from app.utils.exceptions import UnauthorizedError, NotFoundError, ConflictError
+from app.utils.exceptions import UnauthorizedError, NotFoundError, ConflictError, ValidationError
 from app.utils.helpers import ensure_utc
 from app.core.logging import get_logger
 
@@ -67,8 +68,8 @@ class AuthenticationManager:
             
         with get_session() as session:
             email_verification_queries.mark_as_used(session, token)
-            user_queries.mark_email_as_verified(session, email_verification_token.user_id)
-            
+            user_queries.mark_email_as_verified(session, email_verification_token.user_id, email_verification_token.email)
+
         return email_verification_token.email
             
     
@@ -137,6 +138,71 @@ class AuthenticationManager:
             raise UnauthorizedError
         
         return self._generate_token_pair(user_sign_in.user_id, is_guest=False)
+
+    def change_password(self, user_id: str, current_password: str, new_password: str) -> Token:
+        if len(new_password) < 8:
+            raise ValidationError
+
+        user_sign_in = user_queries.get_password_hash_by_id(user_id)
+
+        if not user_sign_in or not user_sign_in.password_hash:
+            raise UnauthorizedError
+
+        hasher = PasswordHasher()
+
+        try:
+            hasher.verify(user_sign_in.password_hash, current_password)
+        except VerifyMismatchError:
+            raise UnauthorizedError
+
+        new_hash = hasher.hash(new_password)
+        user_queries.update_password_hash(user_id, new_hash)
+
+        refresh_token_queries.delete_by_user_id(user_id)
+
+        return self._generate_token_pair(user_id, is_guest=False)
+
+    def request_email_change(self, user_id: str, current_password: str, new_email: str, preferred_language: str) -> str:
+        new_email = new_email.strip().lower()
+
+        if not re.match(r"^[^@]+@[^@]+\.[^@]+$", new_email):
+            raise ValidationError
+
+        user_sign_in = user_queries.get_password_hash_by_id(user_id)
+
+        if not user_sign_in or not user_sign_in.password_hash:
+            raise UnauthorizedError
+
+        try:
+            PasswordHasher().verify(user_sign_in.password_hash, current_password)
+        except VerifyMismatchError:
+            raise UnauthorizedError
+
+        current_status = user_queries.get_email_verification_status(user_id)
+
+        if current_status and current_status.email == new_email:
+            raise ConflictError(field="email")
+
+        if user_queries.email_exists(new_email):
+            raise ConflictError(field="email")
+
+        new_verification_token = email_verification_schemas.EmailVerificationToken(
+            token=secrets.token_urlsafe(24),
+            email=new_email,
+            user_id=user_id,
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=EMAIL_VERIFICATION_TOKEN_EXPIRY_HOURS),
+            used_at=None,
+        )
+
+        with get_session() as session:
+            email_verification_queries.expire_for_user(session, user_id)
+            email_verification_queries.create(session, new_verification_token)
+
+        public_url = str(urljoin(getenv("API_BASE_URL", ""), f"/auth/email/verify?token={new_verification_token.token}"))
+
+        send_verification_email(new_email, preferred_language, public_url, EMAIL_VERIFICATION_TOKEN_EXPIRY_HOURS)
+
+        return new_email
 
     def get_user_id_from_token(self, token: str) -> str:
         payload = self._get_payload_from_access_token(token)
