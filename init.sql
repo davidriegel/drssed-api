@@ -71,8 +71,8 @@ CREATE TABLE
     KEY idx_clothing_user_cat_deleted (user_id, category, deleted_at),
     CONSTRAINT fk_clothing_user
         FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-   CONSTRAINT chk_warmth_level
-        CHECK (0 <= warmth_level <= 5)
+    CONSTRAINT chk_warmth_level
+        CHECK (warmth_level BETWEEN 1 AND 5)
 ) ENGINE=InnoDB;
 
 CREATE TABLE
