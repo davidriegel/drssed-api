@@ -59,6 +59,7 @@ CREATE TABLE
     category VARCHAR(50) NOT NULL,
     sub_category VARCHAR(50) NOT NULL,
     image_id VARCHAR(36) NOT NULL,
+    warmth_level TINYINT NOT NULL,
     color CHAR(7) NOT NULL,
     description VARCHAR(255) NULL,
     is_public TINYINT(1) NOT NULL DEFAULT 0,
@@ -68,8 +69,10 @@ CREATE TABLE
     PRIMARY KEY (clothing_id),
     KEY idx_clothing_user_deleted (user_id, deleted_at),
     KEY idx_clothing_user_cat_deleted (user_id, category, deleted_at),
-    CONSTRAINT fk_clothing_user 
-        FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+    CONSTRAINT fk_clothing_user
+        FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+   CONSTRAINT chk_warmth_level
+        CHECK (0 <= warmth_level <= 5)
 ) ENGINE=InnoDB;
 
 CREATE TABLE
