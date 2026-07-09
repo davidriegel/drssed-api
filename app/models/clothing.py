@@ -18,24 +18,46 @@ class ClothingCategory(str, Enum):
     
 class ClothingSubCategory(str, Enum):
     # TOP
-    T_SHIRT = "T-SHIRT"
+    T_SHIRT = "T_SHIRT"
+    LONGSLEEVE = "LONGSLEEVE"
+    TANK_TOP = "TANK_TOP"
     SHIRT = "SHIRT"
     POLO_SHIRT = "POLO_SHIRT"
     SWEATER = "SWEATER"
     HOODIE = "HOODIE"
+    SWEATSHIRT = "SWEATSHIRT"
+    CARDIGAN = "CARDIGAN"
+    VEST = "VEST"
+    TURTLENECK = "TURTLENECK"
+
     # BOTTOM
     JEANS = "JEANS"
     TROUSERS = "TROUSERS"
+    CHINOS = "CHINOS"
+    CARGO_PANTS = "CARGO_PANTS"
+    SWEATPANTS = "SWEATPANTS"
+    LEGGINGS = "LEGGINGS"
     SHORTS = "SHORTS"
     SKIRT = "SKIRT"
+
     # JACKET
-    JACKET = "JACKET"
     DENIM_JACKET = "DENIM_JACKET"
     SPORTS_JACKET = "SPORTS_JACKET"
+    LEATHER_JACKET = "LEATHER_JACKET"
+    BOMBER_JACKET = "BOMBER_JACKET"
+    PUFFER_JACKET = "PUFFER_JACKET"
+    WINDBREAKER = "WINDBREAKER"
+    RAIN_JACKET = "RAIN_JACKET"
+    PARKA = "PARKA"
     COAT = "COAT"
+    TRENCH_COAT = "TRENCH_COAT"
     BLAZER = "BLAZER"
+
     # ONE_PIECE
     DRESS = "DRESS"
+    JUMPSUIT = "JUMPSUIT"
+    OVERALL = "OVERALL"
+    SUIT = "SUIT"
 
     @property
     def category(self) -> "ClothingCategory":
@@ -43,25 +65,51 @@ class ClothingSubCategory(str, Enum):
 
 
 _SUBCATEGORY_PARENTS: dict[ClothingSubCategory, ClothingCategory] = {
+    # TOP
     ClothingSubCategory.T_SHIRT: ClothingCategory.TOP,
+    ClothingSubCategory.LONGSLEEVE: ClothingCategory.TOP,
+    ClothingSubCategory.TANK_TOP: ClothingCategory.TOP,
     ClothingSubCategory.SHIRT: ClothingCategory.TOP,
     ClothingSubCategory.POLO_SHIRT: ClothingCategory.TOP,
     ClothingSubCategory.SWEATER: ClothingCategory.TOP,
     ClothingSubCategory.HOODIE: ClothingCategory.TOP,
+    ClothingSubCategory.SWEATSHIRT: ClothingCategory.TOP,
+    ClothingSubCategory.CARDIGAN: ClothingCategory.TOP,
+    ClothingSubCategory.VEST: ClothingCategory.TOP,
+    ClothingSubCategory.TURTLENECK: ClothingCategory.TOP,
 
+    # BOTTOM
     ClothingSubCategory.JEANS: ClothingCategory.BOTTOM,
     ClothingSubCategory.TROUSERS: ClothingCategory.BOTTOM,
+    ClothingSubCategory.CHINOS: ClothingCategory.BOTTOM,
+    ClothingSubCategory.CARGO_PANTS: ClothingCategory.BOTTOM,
+    ClothingSubCategory.SWEATPANTS: ClothingCategory.BOTTOM,
+    ClothingSubCategory.LEGGINGS: ClothingCategory.BOTTOM,
     ClothingSubCategory.SHORTS: ClothingCategory.BOTTOM,
     ClothingSubCategory.SKIRT: ClothingCategory.BOTTOM,
 
-    ClothingSubCategory.JACKET: ClothingCategory.JACKET,
+    # JACKET
     ClothingSubCategory.DENIM_JACKET: ClothingCategory.JACKET,
     ClothingSubCategory.SPORTS_JACKET: ClothingCategory.JACKET,
+    ClothingSubCategory.LEATHER_JACKET: ClothingCategory.JACKET,
+    ClothingSubCategory.BOMBER_JACKET: ClothingCategory.JACKET,
+    ClothingSubCategory.PUFFER_JACKET: ClothingCategory.JACKET,
+    ClothingSubCategory.WINDBREAKER: ClothingCategory.JACKET,
+    ClothingSubCategory.RAIN_JACKET: ClothingCategory.JACKET,
+    ClothingSubCategory.PARKA: ClothingCategory.JACKET,
     ClothingSubCategory.COAT: ClothingCategory.JACKET,
+    ClothingSubCategory.TRENCH_COAT: ClothingCategory.JACKET,
     ClothingSubCategory.BLAZER: ClothingCategory.JACKET,
 
-    ClothingSubCategory.DRESS: ClothingCategory.ONE_PIECE
+    # ONE_PIECE
+    ClothingSubCategory.DRESS: ClothingCategory.ONE_PIECE,
+    ClothingSubCategory.JUMPSUIT: ClothingCategory.ONE_PIECE,
+    ClothingSubCategory.OVERALL: ClothingCategory.ONE_PIECE,
+    ClothingSubCategory.SUIT: ClothingCategory.ONE_PIECE,
 }
+
+assert set(ClothingSubCategory) == set(_SUBCATEGORY_PARENTS), \
+    f"Fehlendes Parent-Mapping: {set(ClothingSubCategory) - set(_SUBCATEGORY_PARENTS)}"
 
 @dataclass
 class Clothing:
