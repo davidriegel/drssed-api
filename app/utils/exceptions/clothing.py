@@ -43,3 +43,7 @@ class SeasonsInvalidError(ClothingValidationError):
 class ClothingTagsInvalidError(ClothingValidationError):
     def __init__(self, message="Clothing tags are invalid"):
         super().__init__(message)
+
+class ClothingWarmthLevelInvalidError(ClothingValidationError):
+    def __init__(self, message="Clothing warmth level is invalid, it has to be an integer between 1 and 5"):
+        super().__init__(message)

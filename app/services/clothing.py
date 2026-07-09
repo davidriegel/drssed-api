@@ -25,12 +25,25 @@ from app.utils.exceptions import (
     ClothingNotFoundError,
     ClothingTagsInvalidError,
     ClothingValidationError,
+    ClothingWarmthLevelInvalidError,
     ConflictError,
     SeasonsInvalidError,
     ValidationError,
 )
 
 logger = get_logger()
+
+MIN_WARMTH_LEVEL = 1
+MAX_WARMTH_LEVEL = 5
+
+
+def _is_valid_warmth_level(warmth_level) -> bool:
+    """Warmth level must be an integer between 1 (coldest/airiest) and 5 (warmest)."""
+    return (
+        isinstance(warmth_level, int)
+        and not isinstance(warmth_level, bool)
+        and MIN_WARMTH_LEVEL <= warmth_level <= MAX_WARMTH_LEVEL
+    )
 
 
 class ClothingManager:
@@ -68,6 +81,7 @@ class ClothingManager:
         sub_category: ClothingSubCategory,
         image_id: str,
         color: str,
+        warmth_level: int,
         seasons: list[Season],
         tags: list[ClothingTags],
         description: Optional[str] = None,
@@ -75,6 +89,9 @@ class ClothingManager:
         color_regex = r"^#([A-Fa-f0-9]{6})$"
         if isinstance(color, str) and not re_match(color_regex, color):
             raise ValidationError
+
+        if not _is_valid_warmth_level(warmth_level):
+            raise ClothingWarmthLevelInvalidError
 
         if not os.path.exists(os.path.join("app", "static", "temp", image_id + ".webp")):
             raise ValidationError("The provided image file does not exist.")
@@ -94,6 +111,7 @@ class ClothingManager:
             sub_category.category,
             sub_category,
             color,
+            warmth_level,
             datetime.now(timezone.utc),
             user_id,
             image_id,
@@ -114,6 +132,7 @@ class ClothingManager:
                     image_id=clothing.image_id,
                     user_id=clothing.user_id,
                     color=clothing.color,
+                    warmth_level=clothing.warmth_level,
                     description=clothing.description,
                 )
                 clothing_queries.add_seasons(session, clothing.clothing_id, [s.name for s in clothing.seasons])
@@ -207,6 +226,7 @@ class ClothingManager:
         sub_category: Optional[str] = None,
         description: Optional[str] = None,
         color: Optional[str] = None,
+        warmth_level: Optional[int] = None,
         seasons: Optional[list[str]] = None,
         tags: Optional[list[str]] = None,
         image_id: Optional[str] = None,
@@ -241,6 +261,14 @@ class ClothingManager:
                             "The color is missing or invalid. It should be a hex color code (e.g., #FFFFFF)."
                         )
                     fields["color"] = color
+
+                if warmth_level is not None:
+                    if not _is_valid_warmth_level(warmth_level):
+                        raise ClothingWarmthLevelInvalidError(
+                            "The warmth level is invalid. It has to be an integer between 1 and 5."
+                        )
+                    if warmth_level != current.warmth_level:
+                        fields["warmth_level"] = warmth_level
 
                 if isinstance(image_id, str):
                     if not os.path.exists(os.path.join("app", "static", "temp", image_id + ".webp")):

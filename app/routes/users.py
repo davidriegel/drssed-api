@@ -190,11 +190,12 @@ def create_clothing_piece():
     description = data.get("description", None)
     sub_category = data.get("sub_category", None)
     color = data.get("color", None)
+    warmth_level = data.get("warmth_level", None)
     seasons = data.get("seasons", [])
     tags = data.get("tags", [])
     image_id = data.get("image_id", None)
-    
-    if not name or not sub_category or not color or not image_id:
+
+    if not name or not sub_category or not color or not image_id or warmth_level is None:
         raise ValidationError
     
     if str(sub_category).upper() not in ClothingSubCategory.__members__:
@@ -214,7 +215,7 @@ def create_clothing_piece():
         
     typed_tags = [ClothingTags[tag.upper()] for tag in tags]
 
-    clothing = clothing_manager.create_clothing(g.user_id, name, typed_sub_category, image_id, color, typed_seasons, typed_tags, description)
+    clothing = clothing_manager.create_clothing(g.user_id, name, typed_sub_category, image_id, color, warmth_level, typed_seasons, typed_tags, description)
 
     return jsonify({"clothing": clothing.to_dict()}), 201
 

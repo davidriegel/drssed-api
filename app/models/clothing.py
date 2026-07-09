@@ -71,6 +71,7 @@ class Clothing:
     category: ClothingCategory
     sub_category: ClothingSubCategory
     color: str
+    warmth_level: int
     created_at: datetime
     user_id: str
     image_id: str
@@ -93,6 +94,7 @@ class Clothing:
             color=core.get("color"),
             category=ClothingCategory[core.get("category")],
             sub_category=ClothingSubCategory[core.get("sub_category")],
+            warmth_level=core.get("warmth_level"),
             created_at=core.get("created_at"),
             user_id=core.get("user_id"),
             image_id=core.get("image_id"),

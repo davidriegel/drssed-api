@@ -12,6 +12,7 @@ class ClothingRow(BaseModel):
     category: str
     sub_category: str
     color: str
+    warmth_level: int
     description: str | None
     created_at: datetime
     user_id: str

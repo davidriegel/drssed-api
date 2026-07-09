@@ -49,7 +49,7 @@ def get_by_id(user_id: str, clothing_id: str) -> ClothingRow | None:
     with get_session() as session:
         return session.select_one_or_none(
             """
-            SELECT clothing_id, is_public, name, category, sub_category, color, description, created_at, user_id, image_id
+            SELECT clothing_id, is_public, name, category, sub_category, color, warmth_level, description, created_at, user_id, image_id
             FROM clothing
             WHERE clothing_id = :clothing_id AND user_id = :user_id AND deleted_at IS NULL
             """,
@@ -83,7 +83,7 @@ def get_updated_since(user_id: str, updated_since: datetime) -> list[ClothingRow
     with get_session() as session:
         return session.select(
             """
-            SELECT clothing_id, is_public, name, category, sub_category, color, description, created_at, user_id, image_id
+            SELECT clothing_id, is_public, name, category, sub_category, color, warmth_level, description, created_at, user_id, image_id
             FROM clothing
             WHERE user_id = :user_id AND updated_at > :updated_since AND deleted_at IS NULL
             ORDER BY updated_at ASC
@@ -152,7 +152,7 @@ def list_for_user(
     params["offset"] = offset
 
     sql = f"""
-        SELECT c.clothing_id, c.is_public, c.name, c.category, c.sub_category, c.color, c.description, c.created_at, c.user_id, c.image_id
+        SELECT c.clothing_id, c.is_public, c.name, c.category, c.sub_category, c.color, c.warmth_level, c.description, c.created_at, c.user_id, c.image_id
         FROM clothing c
         WHERE {' AND '.join(where_clauses)}
         ORDER BY c.created_at DESC
@@ -205,13 +205,14 @@ def create(
     image_id: str,
     user_id: str,
     color: str,
+    warmth_level: int,
     description: str | None,
 ) -> None:
     """Inserts a new clothing row."""
     session.execute(
         """
-        INSERT INTO clothing (clothing_id, is_public, name, category, sub_category, image_id, user_id, color, description)
-        VALUES (:clothing_id, :is_public, :name, :category, :sub_category, :image_id, :user_id, :color, :description)
+        INSERT INTO clothing (clothing_id, is_public, name, category, sub_category, image_id, user_id, color, warmth_level, description)
+        VALUES (:clothing_id, :is_public, :name, :category, :sub_category, :image_id, :user_id, :color, :warmth_level, :description)
         """,
         {
             "clothing_id": clothing_id,
@@ -222,6 +223,7 @@ def create(
             "image_id": image_id,
             "user_id": user_id,
             "color": color,
+            "warmth_level": warmth_level,
             "description": description,
         },
     )
@@ -281,7 +283,7 @@ def get_basic_for_update(session, user_id: str, clothing_id: str) -> ClothingRow
     """Fetches the current clothing row for comparison during update."""
     return session.select_one_or_none(
         """
-        SELECT clothing_id, is_public, name, category, sub_category, color, description, created_at, user_id, image_id
+        SELECT clothing_id, is_public, name, category, sub_category, color, warmth_level, description, created_at, user_id, image_id
         FROM clothing
         WHERE clothing_id = :clothing_id AND user_id = :user_id AND deleted_at IS NULL
         """,
@@ -313,7 +315,7 @@ def update_fields(session, clothing_id: str, fields: dict) -> None:
     if not fields:
         return
 
-    allowed_fields = {"name", "color", "image_id", "sub_category", "description"}
+    allowed_fields = {"name", "color", "warmth_level", "image_id", "sub_category", "description"}
     set_clauses = []
     params: dict = {"clothing_id": clothing_id}
 
