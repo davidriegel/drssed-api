@@ -2,69 +2,108 @@ __all__ = ["outfit_manager"]
 
 import traceback
 import uuid
-from random import choice, random
 from datetime import datetime, timezone
-from app.core.database import Database
-from app.utils.exceptions import OutfitNotFoundError, OutfitNameTooShortError, OutfitNameTooLongError, OutfitDescriptionTooLongError, OutfitNameMissingError, OutfitClothingIDsMissingError, OutfitClothingIDInvalidError, SeasonsInvalidError, OutfitTagsInvalidError, OutfitIDMissingError, OutfitPermissionError, OutfitLimitInvalidError, OutfitOffsetInvalidError, OutfitValidationError, OutfitPublicMissingError, OutfitFavoriteMissingError, OutfitSceneMissingError, OutfitSceneInvalidError
-from app.utils.exceptions import UnprocessableEntityError
-from typing import Optional, cast
-from app.services.clothing import clothing_manager
-from app.models.outfit import Outfit, OutfitTags, CanvasPlacement
-from app.models.clothing import Clothing, ClothingTags, ClothingCategory
+from random import choice, random
+from typing import Optional
+
+from app.core.database import get_session
+from app.core.logging import get_logger
+from app.models.clothing import Clothing, ClothingCategory, ClothingTags
+from app.models.outfit import CanvasPlacement, Outfit, OutfitTags
 from app.models.season import Season
-from app.utils.helpers import helper
+from app.persistence.queries import clothing as clothing_queries
+from app.persistence.queries import outfit as outfit_queries
+from app.persistence.schemas.outfit import OutfitClothingRow
 from app.services.clothing import clothing_manager
 from app.services.image import image_manager
-from app.core.logging import get_logger
+from app.utils.exceptions import (
+    OutfitClothingIDInvalidError,
+    OutfitFavoriteMissingError,
+    OutfitIDMissingError,
+    OutfitLimitInvalidError,
+    OutfitNameMissingError,
+    OutfitNameTooLongError,
+    OutfitNameTooShortError,
+    OutfitNotFoundError,
+    OutfitOffsetInvalidError,
+    OutfitDescriptionTooLongError,
+    OutfitPermissionError,
+    OutfitPublicMissingError,
+    OutfitSceneInvalidError,
+    OutfitSceneMissingError,
+    OutfitTagsInvalidError,
+    OutfitValidationError,
+    SeasonsInvalidError,
+    UnprocessableEntityError,
+)
 
 logger = get_logger()
 
+
+def _canvas_from_row(row: OutfitClothingRow) -> CanvasPlacement:
+    return CanvasPlacement(
+        clothing_id=row.clothing_id,
+        x=float(row.position_x),
+        y=float(row.position_y),
+        z=int(row.z_index),
+        scale=float(row.scale),
+        rotation=float(row.rotation),
+    )
+
+
 class OutfitManager:
-    def generate_outfit(self, user_id: str, seasons: Optional[list[Season]] = None, tags: Optional[list[OutfitTags]] = None, anchor: Optional[list[str]] = None, amount: int = 3) -> list[Outfit]:
-        """
-        Generate new outfit options, optionally based on season, tags or anchor clothing items.
-        """
+    def generate_outfit(
+        self,
+        user_id: str,
+        seasons: Optional[list[Season]] = None,
+        tags: Optional[list[OutfitTags]] = None,
+        anchor: Optional[list[str]] = None,
+        amount: int = 3,
+    ) -> list[Outfit]:
+        """Generate new outfit options, optionally based on season, tags or anchor clothing items."""
         clothing_tags = [ClothingTags[t.name] for t in tags] if tags else None
-        
-        suitable_clothes: list[Clothing] = clothing_manager.get_list_of_clothing_by_user_id(user_id, seasons=seasons, tags=clothing_tags, limit=1000, only_public=False) # high limit, outfit generation needs full filtered pool
-        
+
+        suitable_clothes: list[Clothing] = clothing_manager.get_list_of_clothing_by_user_id(
+            user_id, seasons=seasons, tags=clothing_tags, limit=1000, only_public=False
+        )  # high limit, outfit generation needs full filtered pool
+
         if not suitable_clothes:
             raise UnprocessableEntityError
-        
+
         items_by_category: dict[ClothingCategory, list[Clothing]] = {}
         for clothing in suitable_clothes:
             items_by_category.setdefault(clothing.category, []).append(clothing)
-        
+
         jackets = items_by_category.get(ClothingCategory.JACKET, [])
         tops = items_by_category.get(ClothingCategory.TOP, [])
         bottoms = items_by_category.get(ClothingCategory.BOTTOM, [])
         one_pieces = items_by_category.get(ClothingCategory.ONE_PIECE, [])
-        
+
         can_build_default = bool(tops) and bool(bottoms)
         can_build_one_pice = bool(one_pieces)
-        
+
         if not can_build_default and not can_build_one_pice:
             raise UnprocessableEntityError
-        
+
         outfits: list[Outfit] = []
         for _ in range(amount):
             if can_build_default and can_build_one_pice:
                 use_one_piece = choice([True, False])
             else:
                 use_one_piece = can_build_one_pice
-                
+
             chosen_items: list[Clothing] = []
             if use_one_piece:
                 chosen_items.append(choice(one_pieces))
             else:
                 chosen_items.append(choice(tops))
                 chosen_items.append(choice(bottoms))
-                
+
             if jackets and random() < 0.5:
                 chosen_items.append(choice(jackets))
-                
+
             scene = self._build_default_scene(chosen_items)
-            
+
             outfit = Outfit(
                 outfit_id=str(uuid.uuid4()),
                 is_public=False,
@@ -75,12 +114,15 @@ class OutfitManager:
                 user_id=user_id,
                 scene=scene,
                 seasons=seasons or [season for season in Season],
-                tags=tags or [tag for tag in OutfitTags]
+                tags=tags or [tag for tag in OutfitTags],
             )
             outfits.append(outfit)
-        
+
+        if not outfits:
+            raise UnprocessableEntityError
+
         return outfits
-    
+
     def _build_default_scene(self, items: list[Clothing]) -> list[CanvasPlacement]:
         DEFAULT_POSITIONS = {
             ClothingCategory.JACKET: (0.5, 0.2, 4),
@@ -88,115 +130,74 @@ class OutfitManager:
             ClothingCategory.BOTTOM: (0.5, 0.7, 2),
             ClothingCategory.ONE_PIECE: (0.5, 0.5, 1),
         }
-        
+
         placements: list[CanvasPlacement] = []
         for clothing in items:
             x, y, z = DEFAULT_POSITIONS[clothing.category]
             placements.append(CanvasPlacement(clothing.clothing_id, x, y, z, 0.25, 0))
-            
+
         return placements
-    
+
     def sync_outfits(self, user_id: str, updated_since: datetime) -> tuple[list[Outfit], list[str]]:
-        updated_outfits: list[Outfit] = []
-        deleted_ids: list[str] = []
-        
-        statement = """
-            SELECT outfit_id, name, is_favorite, is_public, created_at, updated_at, description, user_id
-            FROM outfits
-            WHERE user_id = %s AND updated_at > %s AND deleted_at IS NULL
-            ORDER BY updated_at ASC
-        """
-        
         try:
-            with Database.getConnection() as conn:
-                cursor = conn.cursor(dictionary=True)
-                cursor.execute(statement, (user_id, updated_since,))
+            updated_rows = outfit_queries.get_updated_since(user_id, updated_since)
+            deleted_rows = outfit_queries.get_deleted_ids_since(user_id, updated_since)
 
-                updated_rows = cursor.fetchall()
-                
-                for outfit in updated_rows:
-                    outfit = helper.ensure_dict(outfit)
-                    
-                    cursor.execute("SELECT season FROM outfit_seasons WHERE outfit_id = %s;", (outfit.get("outfit_id"),))
-                    seasons = cursor.fetchall()
-                    
-                    cursor.execute("SELECT tag FROM outfit_tags WHERE outfit_id = %s;", (outfit.get("outfit_id"),))
-                    tags = cursor.fetchall()
-                    
-                    cursor.execute("SELECT clothing_id, position_x, position_y, z_index, scale, rotation FROM outfit_clothing WHERE outfit_id = %s ORDER BY z_index;", (outfit.get("outfit_id"),))
-                    clothing_list = cursor.fetchall()
-                    
-                    clothing_canvas = [
-                        CanvasPlacement(
-                            clothing_id=helper.ensure_dict(clothing).get("clothing_id"),
-                            x=helper.ensure_dict(clothing).get("position_x"),
-                            y=helper.ensure_dict(clothing).get("position_y"),
-                            z=helper.ensure_dict(clothing).get("z_index"),
-                            scale=helper.ensure_dict(clothing).get("scale"),
-                            rotation=helper.ensure_dict(clothing).get("rotation")
-                        )
-                        for clothing in clothing_list
-                    ]
-                    
-                    seasons_list = [
-                        Season[helper.ensure_dict(season).get("season", "")]
-                        for season in seasons
-                    ]
+            updated_outfits: list[Outfit] = []
+            for row in updated_rows:
+                season_rows = outfit_queries.get_seasons_by_outfit_id(row.outfit_id)
+                tag_rows = outfit_queries.get_tags_by_outfit_id(row.outfit_id)
+                canvas_rows = outfit_queries.get_clothing_canvas(row.outfit_id)
 
-                    tags_list = [
-                        OutfitTags[helper.ensure_dict(tag).get("tag", "")]
-                        for tag in tags
-                    ]
-
-                    outfit_instance = Outfit.from_dict(
-                        outfit,
-                        clothing_canvas,
-                        seasons_list,
-                        tags_list
+                updated_outfits.append(
+                    Outfit.from_dict(
+                        row.model_dump(),
+                        [_canvas_from_row(c) for c in canvas_rows],
+                        [Season[s.season] for s in season_rows],
+                        [OutfitTags[t.tag] for t in tag_rows],
                     )
-                    
-                    updated_outfits.append(outfit_instance)
-                    
-                cursor.execute("""
-                    SELECT outfit_id
-                    FROM outfits
-                    WHERE user_id = %s AND deleted_at IS NOT NULL AND deleted_at > %s
-                    """,
-                    (user_id, updated_since, )
                 )
-                
-                deleted_rows = cursor.fetchall()
-                
-                for row in deleted_rows:
-                    row = helper.ensure_dict(row)
-                    deleted_ids.append(row.get("outfit_id", ""))
+
+            deleted_ids = [row.outfit_id for row in deleted_rows]
         except Exception as e:
             logger.error(f"An unexpected error occurred while retrieving updated and deleted outfits for user {user_id}: {e}")
             logger.error(traceback.format_exc())
-            raise e
+            raise
 
         return updated_outfits, deleted_ids
 
-    def create_outfit(self, user_id: str, name: str, scene: dict, seasons: Optional[list[str]], tags: Optional[list[str]], is_public: bool, is_favorite: bool, description: Optional[str] = None) -> Outfit:
+    def create_outfit(
+        self,
+        user_id: str,
+        name: str,
+        scene: dict,
+        seasons: Optional[list[str]],
+        tags: Optional[list[str]],
+        is_public: bool,
+        is_favorite: bool,
+        description: Optional[str] = None,
+    ) -> Outfit:
         if not isinstance(name, str) or not name.strip():
             raise OutfitNameMissingError("The provided name is missing or invalid.")
-        
+
         if len(name) < 3:
             raise OutfitNameTooShortError("The provided name is too short, it has to be at least 3 characters long.")
 
         if len(name) > 50:
             raise OutfitNameTooLongError("The provided name is too long, it has to be at most 50 characters long.")
 
+        seasons_typed: Optional[list[Season]] = None
         if seasons is not None:
             if not isinstance(seasons, list) or not all(isinstance(season, str) for season in seasons):
                 raise SeasonsInvalidError("Seasons must be a list of strings.")
-            
+
             for season in seasons:
                 if season.strip().upper() not in Season.__members__:
                     raise SeasonsInvalidError(f"The provided season ({season}) is not valid.")
 
-            seasons = [Season[season.strip().upper()] for season in seasons]
+            seasons_typed = [Season[season.strip().upper()] for season in seasons]
 
+        tags_typed: Optional[list[OutfitTags]] = None
         if tags is not None:
             if not isinstance(tags, list) or not all(isinstance(tag, str) for tag in tags):
                 raise OutfitTagsInvalidError("Tags must be a list of strings.")
@@ -205,20 +206,22 @@ class OutfitManager:
                 if tag.strip().upper() not in OutfitTags.__members__:
                     raise OutfitTagsInvalidError(f"The provided tag ({tag}) is not valid.")
 
-            tags = [OutfitTags[tag.strip().upper()] for tag in tags]
-        
+            tags_typed = [OutfitTags[tag.strip().upper()] for tag in tags]
+
         if not isinstance(is_public, bool):
             raise OutfitPublicMissingError("The is_public is missing.")
-            
+
         if not isinstance(is_favorite, bool):
             raise OutfitFavoriteMissingError("The is_favorite is missing.")
 
         if isinstance(description, str) and len(description) > 255:
-            raise OutfitDescriptionTooLongError("The provided description is too long, it has to be at most 255 characters long.")
+            raise OutfitDescriptionTooLongError(
+                "The provided description is too long, it has to be at most 255 characters long."
+            )
 
         if not isinstance(scene, list):
             raise OutfitSceneMissingError("scene is missing or invalid.")
-        
+
         if len(scene) < 2:
             raise OutfitSceneInvalidError("scene.items must contain at least 2 items.")
 
@@ -235,16 +238,11 @@ class OutfitManager:
 
         outfit_id = str(uuid.uuid4())
 
-        for cid in clothing_ids:
-            with Database.getConnection() as conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "SELECT 1 FROM clothing WHERE clothing_id = %s AND user_id = %s AND deleted_at IS NULL;",
-                    (cid, user_id)
-                )
-                if cursor.fetchone() is None:
+        with get_session() as session:
+            for cid in clothing_ids:
+                if not clothing_queries.exists_active_for_user(session, user_id, cid):
                     raise OutfitClothingIDInvalidError(f"Clothing ID {cid} invalid or not owned by user.")
-        
+
         validated_items = []
         clothing_canvas: list[CanvasPlacement] = []
 
@@ -252,16 +250,22 @@ class OutfitManager:
             clothing_id = item["clothing_id"]
             image_id = clothing_manager.get_image_id_by_clothing_id(
                 user_id=user_id,
-                clothing_id=clothing_id
+                clothing_id=clothing_id,
             )
 
-            validated_items.append({
-                "item": item,
-                "image_id": image_id
-            })
-            
-            clothing_canvas.append(CanvasPlacement(clothing_id=clothing_id, x=item["x"], y=item["y"], z=item["z"], scale=item["scale"], rotation=item["rotation"]))
-        
+            validated_items.append({"item": item, "image_id": image_id})
+
+            clothing_canvas.append(
+                CanvasPlacement(
+                    clothing_id=clothing_id,
+                    x=item["x"],
+                    y=item["y"],
+                    z=item["z"],
+                    scale=item["scale"],
+                    rotation=item["rotation"],
+                )
+            )
+
         image_manager.generate_outfit_preview(outfit_id, items=validated_items)
 
         outfit = Outfit(
@@ -273,32 +277,44 @@ class OutfitManager:
             updated_at=datetime.now(timezone.utc),
             user_id=user_id,
             scene=clothing_canvas,
-            seasons=seasons,
-            tags=tags,
-            description=description
+            seasons=seasons_typed,
+            tags=tags_typed,
+            description=description,
         )
 
         try:
-            with Database.getConnection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO outfits(outfit_id, is_public, is_favorite, name, user_id, description)
-                    VALUES (%s, %s, %s, %s, %s, %s);
-                """, (
-                    outfit_id, is_public, is_favorite, name, user_id, description,
-                ))
+            with get_session() as session:
+                outfit_queries.create(
+                    session,
+                    outfit_id=outfit_id,
+                    is_public=is_public,
+                    is_favorite=is_favorite,
+                    name=name,
+                    user_id=user_id,
+                    description=description,
+                )
 
                 if outfit.seasons:
-                    for season in outfit.seasons:
-                        cursor.execute("INSERT INTO outfit_seasons(outfit_id, season) VALUES (%s, %s);", (outfit_id, season.name))
+                    outfit_queries.add_seasons(session, outfit_id, [s.name for s in outfit.seasons])
                 if outfit.tags:
-                    for tag in outfit.tags:
-                        cursor.execute("INSERT INTO outfit_tags(outfit_id, tag) VALUES (%s, %s);", (outfit_id, tag.name))
-                for item in clothing_canvas:
-                    cursor.execute("INSERT INTO outfit_clothing(outfit_id, clothing_id, position_x, position_y, z_index, scale, rotation) VALUES (%s, %s, %s, %s, %s, %s, %s);", (outfit_id, item.clothing_id, item.x, item.y, item.z, item.scale, item.rotation))
+                    outfit_queries.add_tags(session, outfit_id, [t.name for t in outfit.tags])
 
-                conn.commit()
-        except Exception as e:
+                outfit_queries.add_clothing_placements(
+                    session,
+                    outfit_id,
+                    [
+                        {
+                            "clothing_id": p.clothing_id,
+                            "x": p.x,
+                            "y": p.y,
+                            "z": p.z,
+                            "scale": p.scale,
+                            "rotation": p.rotation,
+                        }
+                        for p in clothing_canvas
+                    ],
+                )
+        except Exception:
             try:
                 image_manager.delete_outfit_preview(outfit_id)
             except Exception:
@@ -306,181 +322,141 @@ class OutfitManager:
             raise
 
         return outfit
-    
+
     def get_outfit_by_id(self, user_id: str, outfit_id: Optional[str]) -> Outfit:
         if not isinstance(outfit_id, str) or not outfit_id.strip():
             raise OutfitIDMissingError("The provided outfit ID is missing or invalid.")
-        
+
         try:
-            with Database.getConnection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT is_public, is_favorite, name, created_at, description, updated_at FROM outfits WHERE outfit_id = %s AND user_id = %s AND deleted_at IS NULL;", (outfit_id, user_id,))
-                outfit = cursor.fetchone()
-                
-                if outfit is None:
-                        raise OutfitNotFoundError("The provided ID does not match any outfit in the database.")
-                
-                outfit_is_public, outfit_is_favorite, outfit_name, outfit_created_at, outfit_description, outfit_updated_at = outfit
-                    
-                cursor.execute("SELECT season FROM outfit_seasons WHERE outfit_id = %s;", (outfit_id,))
-                seasons = [Season[cast(str, season)] for (season,) in cursor.fetchall()]
-                    
-                cursor.execute("SELECT tag FROM outfit_tags WHERE outfit_id = %s;", (outfit_id,))
-                tags = [OutfitTags[cast(str, tag)] for (tag,) in cursor.fetchall()]
-                    
-                cursor.execute("SELECT clothing_id, position_x, position_y, z_index, scale, rotation FROM outfit_clothing WHERE outfit_id = %s;", (outfit_id,))
-                rows = cast(list[tuple], cursor.fetchall())
-                clothing_canvas = [helper._parse_canvas_row(row) for row in rows]
-                
-                outfit = Outfit(outfit_id, bool(outfit_is_public), bool(outfit_is_favorite), cast(str, outfit_name), cast(datetime, outfit_created_at), cast(datetime, outfit_updated_at), user_id, clothing_canvas, seasons, tags, cast(str, outfit_description))
-        except OutfitNotFoundError as e:
-            raise e
-        except OutfitPermissionError as e:
-            raise e
+            row = outfit_queries.get_by_id_for_user(user_id, outfit_id)
+
+            if row is None:
+                raise OutfitNotFoundError("The provided ID does not match any outfit in the database.")
+
+            seasons = [Season[s.season] for s in outfit_queries.get_seasons_by_outfit_id(outfit_id)]
+            tags = [OutfitTags[t.tag] for t in outfit_queries.get_tags_by_outfit_id(outfit_id)]
+            clothing_canvas = [_canvas_from_row(c) for c in outfit_queries.get_clothing_canvas(outfit_id)]
+
+            return Outfit(
+                outfit_id=row.outfit_id,
+                is_public=row.is_public,
+                is_favorite=row.is_favorite,
+                name=row.name,
+                created_at=row.created_at,
+                updated_at=row.updated_at,
+                user_id=user_id,
+                scene=clothing_canvas,
+                seasons=seasons,
+                tags=tags,
+                description=row.description,
+            )
+        except OutfitNotFoundError:
+            raise
+        except OutfitPermissionError:
+            raise
         except Exception as e:
             logger.error(f"An unexpected error occurred while retrieving outfit with ID {outfit_id}: {e}")
             logger.error(traceback.format_exc())
-            raise e
+            raise
 
-        return outfit
-
-    def get_list_of_outfits_by_user_id(self, user_id: Optional[str], limit: int = 50, offset: int = 0, include_private: bool = False) -> tuple[list[Outfit], int]:
+    def get_list_of_outfits_by_user_id(
+        self,
+        user_id: Optional[str],
+        limit: int = 50,
+        offset: int = 0,
+        include_private: bool = False,
+    ) -> tuple[list[Outfit], int]:
         if not isinstance(user_id, str) or not user_id.strip():
             raise OutfitIDMissingError("The provided user ID is missing or invalid.")
-        
+
         if not isinstance(limit, int) or limit <= 0 or limit > 100:
             raise OutfitLimitInvalidError("The limit must be a positive integer and cannot exceed 100.")
 
         if not isinstance(offset, int) or offset < 0:
             raise OutfitOffsetInvalidError("The offset must be a positive integer.")
-        
-        outfit_list: list[Outfit] = []
-        total_outfits: int = 0
-        
-        conditions: list[str] = ["user_id = %s"]
-        params: list = [user_id]
-        
-        if not include_private:
-            conditions.append("is_public = %s")
-            params.append(True)
-            
-        where_clause = " AND ".join(conditions)
-        
-        statement = f"""
-            SELECT outfit_id, is_public, is_favorite, name, user_id, created_at
-            FROM outfits
-            WHERE {where_clause} AND deleted_at IS NULL
-            ORDER BY created_at DESC
-            LIMIT %s
-            OFFSET %s;
-        """
-        
+
         try:
-            with Database.getConnection() as conn:
-                cursor = conn.cursor(dictionary=True)
-                
-                cursor.execute("SELECT COUNT(*) as total FROM outfits WHERE " + where_clause + " AND deleted_at IS NULL", tuple(params))
-                total_result = cursor.fetchone()
-                
-                total_result = helper.ensure_dict(total_result)
-                total_outfits = total_result.get("total", 0)
-                
-                params.extend([limit, offset])
-                
-                cursor.execute(statement, tuple(params))
+            rows, total_outfits = outfit_queries.list_for_user(
+                user_id=user_id,
+                include_private=include_private,
+                limit=limit,
+                offset=offset,
+            )
 
-                outfits = cursor.fetchall()
-                
-                for outfit in outfits:
-                    outfit = helper.ensure_dict(outfit)
-                    
-                    cursor.execute("SELECT season FROM outfit_seasons WHERE outfit_id = %s;", (outfit.get("outfit_id"),))
-                    seasons = cursor.fetchall()
-                    
-                    cursor.execute("SELECT tag FROM outfit_tags WHERE outfit_id = %s;", (outfit.get("outfit_id"),))
-                    tags = cursor.fetchall()
+            outfit_list: list[Outfit] = []
+            for row in rows:
+                season_rows = outfit_queries.get_seasons_by_outfit_id(row.outfit_id)
+                tag_rows = outfit_queries.get_tags_by_outfit_id(row.outfit_id)
 
-                    seasons_list = [
-                        Season[helper.ensure_dict(season).get("season", "")]
-                        for season in seasons
-                    ]
-
-                    tags_list = [
-                        OutfitTags[helper.ensure_dict(tag).get("tag", "")]
-                        for tag in tags
-                    ]
-
-                    outfit_instance = Outfit.from_dict(
-                        outfit,
+                outfit_list.append(
+                    Outfit.from_dict(
+                        row.model_dump(),
                         None,
-                        seasons_list,
-                        tags_list
+                        [Season[s.season] for s in season_rows],
+                        [OutfitTags[t.tag] for t in tag_rows],
                     )
-                    
-                    outfit_list.append(outfit_instance)
+                )
         except Exception as e:
             logger.error(f"An unexpected error occurred while retrieving outfits for user {user_id}: {e}")
             logger.error(traceback.format_exc())
-            raise e
+            raise
 
         return outfit_list, total_outfits
-        
-    def patch_outfit(self, user_id: str, outfit_id: str, name: Optional[str] = None, is_favorite: Optional[bool] = None, is_public: Optional[bool] = None, seasons: Optional[list[str]] = None, tags: Optional[list[str]] = None, scene: Optional[dict] = None) -> Outfit:
-        try: 
-            with Database.getConnection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT is_favorite, is_public, name FROM outfits WHERE outfit_id = %s AND user_id = %s AND deleted_at IS NULL;", (outfit_id, user_id))
-                result = cursor.fetchone()
-                
-                if result is None:
+
+    def patch_outfit(
+        self,
+        user_id: str,
+        outfit_id: str,
+        name: Optional[str] = None,
+        is_favorite: Optional[bool] = None,
+        is_public: Optional[bool] = None,
+        seasons: Optional[list[str]] = None,
+        tags: Optional[list[str]] = None,
+        scene: Optional[dict] = None,
+    ) -> Outfit:
+        try:
+            with get_session() as session:
+                current = outfit_queries.get_basic_for_patch(session, user_id, outfit_id)
+
+                if current is None:
                     raise OutfitNotFoundError
-                
-                current_is_favorite, current_is_public, current_name = result
-                
-                fields = []
-                values = []
-            
+
+                fields: dict = {}
+
                 if isinstance(name, str):
                     if len(name) < 3:
                         raise OutfitNameTooShortError()
                     if len(name) > 50:
                         raise OutfitNameTooLongError()
-                    if name != current_name:
-                        fields.append("name = %s")
-                        values.append(name)
-                        
-                if is_public is not None and is_public != current_is_public:
-                    fields.append("is_public = %s")
-                    values.append(is_public)
-                    
-                if is_favorite is not None and is_favorite != current_is_favorite:
-                    fields.append("is_favorite = %s")
-                    values.append(is_favorite)
-                    
-                if fields:
-                    query = f"UPDATE outfits SET {', '.join(fields)} WHERE outfit_id = %s;"
-                    cursor.execute(query, (*values, outfit_id))
-                    
+                    if name != current.name:
+                        fields["name"] = name
+
+                if is_public is not None and is_public != current.is_public:
+                    fields["is_public"] = is_public
+
+                if is_favorite is not None and is_favorite != current.is_favorite:
+                    fields["is_favorite"] = is_favorite
+
+                outfit_queries.update_fields(session, outfit_id, fields)
+
                 if seasons is not None:
-                    self._update_outfit_seasons(cursor, outfit_id, seasons)
-                        
+                    self._update_outfit_seasons(session, outfit_id, seasons)
+
                 if tags is not None:
-                    self._update_outfit_tags(cursor, outfit_id, tags)
-                        
+                    self._update_outfit_tags(session, outfit_id, tags)
+
                 if scene is not None:
-                    self._update_outfit_scene(cursor, user_id, outfit_id, scene)
-                
-                conn.commit()
+                    self._update_outfit_scene(session, user_id, outfit_id, scene)
         except (OutfitValidationError, OutfitNotFoundError):
             raise
         except Exception as e:
             logger.error(f"An unexpected error occurred while updating outfit with ID {outfit_id}: {e}")
             logger.error(traceback.format_exc())
-            raise e
-        
+            raise
+
         return self.get_outfit_by_id(user_id, outfit_id)
-    
-    def _update_outfit_scene(self, cursor, user_id: str, outfit_id: str, scene: dict) -> None:
+
+    def _update_outfit_scene(self, session, user_id: str, outfit_id: str, scene: list) -> None:
         if len(scene) < 2:
             raise OutfitSceneInvalidError("scene.items must contain at least 2 items.")
 
@@ -496,13 +472,9 @@ class OutfitManager:
                     raise OutfitSceneInvalidError(f"scene item missing '{sub_key}'.")
 
         for cid in clothing_ids:
-            cursor.execute(
-                "SELECT 1 FROM clothing WHERE clothing_id = %s AND user_id = %s;",
-                (cid, user_id)
-            )
-            if cursor.fetchone() is None:
+            if not clothing_queries.exists_for_user(session, user_id, cid):
                 raise OutfitClothingIDInvalidError(f"Clothing ID {cid} invalid or not owned by user.")
-        
+
         validated_items = []
         clothing_canvas: list[CanvasPlacement] = []
 
@@ -510,83 +482,83 @@ class OutfitManager:
             clothing_id = item["clothing_id"]
             image_id = clothing_manager.get_image_id_by_clothing_id(
                 user_id=user_id,
-                clothing_id=clothing_id
+                clothing_id=clothing_id,
             )
 
-            validated_items.append({
-                "item": item,
-                "image_id": image_id
-            })
-            
-            clothing_canvas.append(CanvasPlacement(clothing_id=clothing_id, x=item["x"], y=item["y"], z=item["z"], scale=item["scale"], rotation=item["rotation"]))
-        
+            validated_items.append({"item": item, "image_id": image_id})
+
+            clothing_canvas.append(
+                CanvasPlacement(
+                    clothing_id=clothing_id,
+                    x=item["x"],
+                    y=item["y"],
+                    z=item["z"],
+                    scale=item["scale"],
+                    rotation=item["rotation"],
+                )
+            )
+
         image_manager.generate_outfit_preview(outfit_id=outfit_id, items=validated_items)
-        
-        cursor.execute("DELETE FROM outfit_clothing WHERE outfit_id = %s;", (outfit_id, ))
-        
-        for item in clothing_canvas:
-            cursor.execute("INSERT INTO outfit_clothing(outfit_id, clothing_id, position_x, position_y, z_index, scale, rotation) VALUES (%s, %s, %s, %s, %s, %s, %s);", (outfit_id, item.clothing_id, item.x, item.y, item.z, item.scale, item.rotation))
-    
-    def _update_outfit_seasons(self, cursor, outfit_id: str, new_seasons: list[str]) -> None:
-        cursor.execute("SELECT season FROM outfit_seasons WHERE outfit_id = %s;", (outfit_id,))
-        existing_seasons = {season[0] for season in cursor.fetchall()}
+
+        outfit_queries.clear_clothing_placements(session, outfit_id)
+        outfit_queries.add_clothing_placements(
+            session,
+            outfit_id,
+            [
+                {
+                    "clothing_id": p.clothing_id,
+                    "x": p.x,
+                    "y": p.y,
+                    "z": p.z,
+                    "scale": p.scale,
+                    "rotation": p.rotation,
+                }
+                for p in clothing_canvas
+            ],
+        )
+
+    def _update_outfit_seasons(self, session, outfit_id: str, new_seasons: list[str]) -> None:
+        existing_seasons = {s.season for s in outfit_queries.get_seasons_in_session(session, outfit_id)}
         new_seasons_set = {season.strip().upper() for season in new_seasons}
-        
+
         for season in new_seasons_set:
             if season not in Season.__members__:
                 raise SeasonsInvalidError(f"Invalid season: {season}")
-            
+
         seasons_to_add = new_seasons_set - existing_seasons
         seasons_to_remove = existing_seasons - new_seasons_set
-        
-        if seasons_to_remove:
-            placeholder = ', '.join(["%s"] * len(seasons_to_remove))
-            cursor.execute("DELETE FROM outfit_seasons WHERE outfit_id = %s AND season IN (" + placeholder + ")", (outfit_id, *seasons_to_remove))
-            
-        if seasons_to_add:
-            values = [(outfit_id, season) for season in seasons_to_add]
-            cursor.executemany("INSERT INTO outfit_seasons (outfit_id, season) VALUES (%s, %s);", values)
-            
-    def _update_outfit_tags(self, cursor, outfit_id: str, new_tags: list[str]) -> None:
-        cursor.execute("SELECT tag FROM outfit_tags WHERE outfit_id = %s;", (outfit_id,))
-        existing_tags = {tag[0] for tag in cursor.fetchall()}
+
+        outfit_queries.remove_seasons(session, outfit_id, list(seasons_to_remove))
+        outfit_queries.add_seasons(session, outfit_id, list(seasons_to_add))
+
+    def _update_outfit_tags(self, session, outfit_id: str, new_tags: list[str]) -> None:
+        existing_tags = {t.tag for t in outfit_queries.get_tags_in_session(session, outfit_id)}
         new_tags_set = {tag.strip().upper() for tag in new_tags}
-        
+
         for tag in new_tags_set:
             if tag not in OutfitTags.__members__:
                 raise OutfitTagsInvalidError(f"Invalid tag: {tag}")
-        
+
         tags_to_add = new_tags_set - existing_tags
         tags_to_remove = existing_tags - new_tags_set
-        
-        if tags_to_remove:
-            placeholder = ', '.join(["%s"] * len(tags_to_remove))
-            cursor.execute("DELETE FROM outfit_tags WHERE outfit_id = %s AND tag IN (" + placeholder + ")", (outfit_id, *tags_to_remove))
-        
-        if tags_to_add:
-            values = [(outfit_id, tag) for tag in tags_to_add]
-            cursor.executemany("INSERT INTO outfit_tags (outfit_id, tag) VALUES (%s, %s);", values)
-            
+
+        outfit_queries.remove_tags(session, outfit_id, list(tags_to_remove))
+        outfit_queries.add_tags(session, outfit_id, list(tags_to_add))
+
     def soft_delete_outfit_by_id(self, user_id: str, outfit_id: str) -> None:
-        with Database.getConnection() as conn:
-            cursor = conn.cursor()
-            
-            try:
-                cursor.execute("UPDATE outfits SET deleted_at = NOW() WHERE outfit_id = %s AND user_id = %s AND deleted_at IS NULL;", (outfit_id, user_id, ))
-                
-                if cursor.rowcount == 0:
+        try:
+            with get_session() as session:
+                affected = outfit_queries.soft_delete_for_user(session, user_id, outfit_id)
+
+                if affected == 0:
                     raise OutfitNotFoundError
-                        
-                conn.commit()
-                
-                image_manager.delete_outfit_preview(outfit_id)
-            except OutfitNotFoundError:
-                raise
-            except Exception as e:
-                conn.rollback()
-                logger.error(f"Unexpected error while soft deleting outfit {outfit_id}: {e}")
-                raise
-            finally:
-                cursor.close()
-    
+        except OutfitNotFoundError:
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error while soft deleting outfit {outfit_id}: {e}")
+            raise
+
+        image_manager.delete_outfit_preview(outfit_id)
+
+
 outfit_manager = OutfitManager()

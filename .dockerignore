@@ -1,7 +1,43 @@
-venv/
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+venv/
+.venv/
+
+# Git / SCM
 .git/
-logs/*.log
+.gitignore
+.gitattributes
+.github/
+
+# Environment / secrets
 .env
+.env.*
+!.env.example
+
+# Docker (no recursion into compose files / Dockerfile itself)
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Project artifacts
+logs/
+*.log
 dump.rdb
+*.sqlite*
+*.bak
+tmp/
+
+# Docs (not needed at runtime)
+*.md
+LICENSE

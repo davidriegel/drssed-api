@@ -10,7 +10,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 # Disable tqdm progress bars globally
 from tqdm import tqdm
 from functools import partialmethod
-tqdm.__init__ = partialmethod(tqdm.__init__, disable=True) # type: ignore
+tqdm.__init__ = partialmethod(tqdm.__init__, disable=True)
 
 import math
 from typing import Optional
@@ -31,26 +31,6 @@ import numpy as np
 fclip = FashionCLIP("fashion-clip")
 
 logger = get_logger()
-
-SPECIFIC_CATEGORIES = [sub.value for sub in ClothingSubCategory]
-
-CATEGORY_MAP: dict[ClothingSubCategory, ClothingCategory] = {
-    ClothingSubCategory.T_SHIRT: ClothingCategory.TOP,
-    ClothingSubCategory.SHIRT: ClothingCategory.TOP,
-    ClothingSubCategory.POLO_SHIRT: ClothingCategory.TOP,
-    ClothingSubCategory.SWEATER: ClothingCategory.TOP,
-    ClothingSubCategory.HOODIE: ClothingCategory.TOP,
-    ClothingSubCategory.JEANS: ClothingCategory.BOTTOM,
-    ClothingSubCategory.TROUSERS: ClothingCategory.BOTTOM,
-    ClothingSubCategory.SHORTS: ClothingCategory.BOTTOM,
-    ClothingSubCategory.SKIRT: ClothingCategory.BOTTOM,
-    ClothingSubCategory.JACKET: ClothingCategory.JACKET,
-    ClothingSubCategory.DENIM_JACKET: ClothingCategory.JACKET,
-    ClothingSubCategory.SPORTS_JACKET: ClothingCategory.JACKET,
-    ClothingSubCategory.COAT: ClothingCategory.JACKET,
-    ClothingSubCategory.BLAZER: ClothingCategory.JACKET,
-    ClothingSubCategory.DRESS: ClothingCategory.ONE_PIECE,
-}
 
 class ImageManager:
     
@@ -76,18 +56,21 @@ class ImageManager:
         image_url = str(urljoin(os.getenv("API_BASE_URL", ""), f"static/temp/{image_id}.webp"))
         
         return image_url, image_id, dominant_hexcode, clothing_category, clothing_sub_category, [], []
-    
+
     def _extract_clothing_category(self, image_path: str) -> tuple[ClothingCategory, ClothingSubCategory]:
         image_emb = fclip.encode_images([image_path], batch_size=1)
-        text_emb = fclip.encode_text(SPECIFIC_CATEGORIES, batch_size=1)
+
+        clothing_categories = [category.value for category in ClothingSubCategory]
+
+        text_emb = fclip.encode_text(clothing_categories, batch_size=1)
 
         sims = (image_emb @ text_emb.T).squeeze(0)
         best_idx = int(np.argmax(sims))
-        sub_category = ClothingSubCategory(SPECIFIC_CATEGORIES[best_idx])
-        category = CATEGORY_MAP[sub_category]
+        sub_category = ClothingSubCategory(clothing_categories[best_idx])
+        category = sub_category.category
 
         return category, sub_category
-        
+
     def _extract_dominant_color(self, image: Image.Image) -> str:
         arr = np.array(image.resize((100, 100)))
         

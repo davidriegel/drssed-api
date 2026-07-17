@@ -21,7 +21,7 @@ from app.utils.exceptions.validation import UnsupportedFileTypeError, FileTooLar
 from app.utils.exceptions.clothing import (
     ClothingIDMissingError,
     ClothingNameMissingError,
-    ClothingCategoryMissingError,
+    ClothingSubCategoryMissingError,
     ClothingColorMissingError,
     ClothingImageMissingError,
     ClothingNameTooShortError,
@@ -29,7 +29,8 @@ from app.utils.exceptions.clothing import (
     ClothingDescriptionTooLongError,
     ClothingImageInvalidError,
     SeasonsInvalidError,
-    ClothingTagsInvalidError
+    ClothingTagsInvalidError,
+    ClothingWarmthLevelInvalidError
 )
 from app.utils.exceptions.outfits import (
     OutfitIDMissingError,
@@ -79,7 +80,7 @@ __all__ = [
     "FileTooLargeError",
     "ImageUnclearError",
     "ClothingNameMissingError",
-    "ClothingCategoryMissingError",
+    "ClothingSubCategoryMissingError",
     "ClothingColorMissingError",
     "ClothingIDMissingError",
     "ClothingImageMissingError",
@@ -89,6 +90,7 @@ __all__ = [
     "ClothingImageInvalidError",
     "SeasonsInvalidError",
     "ClothingTagsInvalidError",
+    "ClothingWarmthLevelInvalidError",
     "OutfitValidationError",
     "OutfitNotFoundError",
     "OutfitIDMissingError",

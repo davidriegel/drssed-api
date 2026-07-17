@@ -36,7 +36,7 @@ def upgrade_guest():
     
     new_tokens = authentication_manager.sign_in_user(email, username, password)
     
-    return jsonify({"user": user.to_dict(), "token": new_tokens.to_dict()}), 201
+    return jsonify({"user": user.model_dump(mode='json'), "token": new_tokens.model_dump(mode='json')}), 201
 
 @users.route("/me/clothing/sync", methods=["GET"])
 @limiter.limit('5 per minute')
@@ -188,20 +188,15 @@ def create_clothing_piece():
     
     name = data.get("name", None)
     description = data.get("description", None)
-    category = data.get("category", None)
     sub_category = data.get("sub_category", None)
     color = data.get("color", None)
+    warmth_level = data.get("warmth_level", None)
     seasons = data.get("seasons", [])
     tags = data.get("tags", [])
     image_id = data.get("image_id", None)
-    
-    if not name or not category or not sub_category or not color or not image_id:
+
+    if not name or not sub_category or not color or not image_id or warmth_level is None:
         raise ValidationError
-    
-    if str(category).upper() not in ClothingCategory.__members__:
-        raise ValidationError
-    
-    typed_category = ClothingCategory[category.upper()]
     
     if str(sub_category).upper() not in ClothingSubCategory.__members__:
         raise ValidationError
@@ -220,16 +215,54 @@ def create_clothing_piece():
         
     typed_tags = [ClothingTags[tag.upper()] for tag in tags]
 
-    clothing = clothing_manager.create_clothing(g.user_id, name, typed_category, typed_sub_category, image_id, color, typed_seasons, typed_tags, description)
+    clothing = clothing_manager.create_clothing(g.user_id, name, typed_sub_category, image_id, color, warmth_level, typed_seasons, typed_tags, description)
 
     return jsonify({"clothing": clothing.to_dict()}), 201
+
+@users.route('/me/password', methods=['PATCH'])
+@authorize_request
+@limiter.limit('5 per minute', key_func=lambda: str(g.user_id))
+def change_password():
+    if g.is_guest:
+        raise ConflictError
+
+    data: dict = request.get_json() or {}
+
+    current_password = data.get("current_password")
+    new_password = data.get("new_password")
+
+    if not current_password or not new_password:
+        raise ValidationError
+
+    token = authentication_manager.change_password(g.user_id, current_password, new_password)
+
+    return jsonify({"token": token.model_dump(mode='json')}), 200
+
+@users.route('/me/email', methods=['PATCH'])
+@authorize_request
+@limiter.limit('3 per hour', key_func=lambda: str(g.user_id))
+def change_email():
+    if g.is_guest:
+        raise ConflictError
+
+    data: dict = request.get_json() or {}
+
+    current_password = data.get("current_password")
+    new_email = data.get("new_email")
+
+    if not current_password or not new_email:
+        raise ValidationError
+
+    pending_email = authentication_manager.request_email_change(g.user_id, current_password, new_email, g.preferred_language)
+
+    return jsonify({"pending_email": pending_email}), 202
 
 @users.route('/me', methods=['DELETE'])
 @limiter.limit('1 per minute')
 @authorize_request
 def delete_account():
     user_manager.delete_account_by_id(g.user_id)
-    
+
     return jsonify({}), 204
 
 @users.route('/me', methods=['GET'])
@@ -237,4 +270,4 @@ def delete_account():
 @limiter.limit('3 per minute')
 def get_current_user():
     user = user_manager.get_private_user_profile_by_id(g.user_id)
-    return jsonify({"user": user.to_dict()}), 200
+    return jsonify({"user": user.model_dump(mode='json')}), 200

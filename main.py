@@ -15,7 +15,8 @@ from app.utils.exceptions import (
     NotFoundError,
     ConflictError,
     PermissionError,
-    UnauthorizedError
+    UnauthorizedError,
+    UnprocessableEntityError
 )
 from app.utils.helpers import helper
 from app.routes.main import api as main
@@ -26,6 +27,7 @@ from app.routes.static import static
 from app.routes.clothing import clothing
 from app.routes.images import images
 from app.routes.outfits import outfits
+from app.routes.taxonomy import taxonomy
 
 api = Flask("Drssed API", static_folder="app/static", static_url_path="/static", template_folder="app/templates")
 
@@ -82,6 +84,12 @@ def unauthorized_error_handler(error):
     
     return jsonify({"error": str(error)}), 401
 
+@api.errorhandler(UnprocessableEntityError)
+def unprocessable_error_handler(error):
+    logger.warning(f"Unprocessable entity: {str(error)}", extra=helper.get_request_context())
+    
+    return jsonify({"error": str(error)}), 422
+
 @api.errorhandler(Exception)
 def internal_error_handler(error):
     logger.exception(f"Unhandled exception: {str(error)}", extra=helper.get_request_context())
@@ -109,6 +117,7 @@ def register_blueprints():
     api.register_blueprint(static, url_prefix="/static")
     api.register_blueprint(images, url_prefix="/images")
     api.register_blueprint(outfits, url_prefix="/outfits")
+    api.register_blueprint(taxonomy, url_prefix="/taxonomy")
 
     logger.info("Blueprint routes registered successfully")
 

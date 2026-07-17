@@ -28,11 +28,12 @@ def patch_clothing_piece(clothing_id: str):
     data = request.get_json()
 
     name = data.get("name", None)
-    category = data.get("category", None)
+    sub_category = data.get("sub_category", None)
     seasons = data.get("seasons", None)
     tags = data.get("tags", None)
     image_id = data.get("image_id", None)
     description = data.get("description", None)
     color = data.get("color", None)
-    clothing = clothing_manager.update_clothing(g.user_id, clothing_id, name, category, description, color, seasons, tags, image_id)
+    warmth_level = data.get("warmth_level", None)
+    clothing = clothing_manager.update_clothing(g.user_id, clothing_id, name, sub_category, description, color, warmth_level, seasons, tags, image_id)
     return jsonify({"clothing": clothing.to_dict()}), 200

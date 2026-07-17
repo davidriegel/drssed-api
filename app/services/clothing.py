@@ -1,406 +1,365 @@
 __all__ = ["clothing_manager"]
 
+import os
 import traceback
 import uuid
-from re import match as re_match
 from datetime import datetime, timezone
-from app.core.database import Database
-from app.utils.exceptions import ValidationError, ConflictError, NotFoundError, ClothingNotFoundError, ClothingImageInvalidError, ClothingNameMissingError, ClothingCategoryMissingError, ClothingColorMissingError, ClothingImageMissingError, ClothingNameTooShortError, ClothingNameTooLongError, ClothingDescriptionTooLongError, ClothingIDMissingError, SeasonsInvalidError, ClothingTagsInvalidError, ClothingValidationError
+from re import match as re_match
 from typing import Optional, cast
-from mysql.connector.errors import IntegrityError
+
+from app.core.database import get_session
+from app.core.logging import get_logger
 from app.models.clothing import Clothing, ClothingCategory, ClothingSubCategory, ClothingTags
 from app.models.season import Season
-from app.core.logging import get_logger
-from app.utils.helpers import helper
+from app.persistence.queries import clothing as clothing_queries
+from app.persistence.queries import outfit as outfit_queries
 from app.services.image import image_manager
-import os
+from app.utils.exceptions import (
+    ClothingSubCategoryMissingError,
+    ClothingColorMissingError,
+    ClothingDescriptionTooLongError,
+    ClothingIDMissingError,
+    ClothingImageMissingError,
+    ClothingNameTooLongError,
+    ClothingNameTooShortError,
+    ClothingNotFoundError,
+    ClothingTagsInvalidError,
+    ClothingValidationError,
+    ClothingWarmthLevelInvalidError,
+    ConflictError,
+    SeasonsInvalidError,
+    ValidationError,
+)
 
 logger = get_logger()
 
+MIN_WARMTH_LEVEL = 1
+MAX_WARMTH_LEVEL = 5
+
+
+def _is_valid_warmth_level(warmth_level) -> bool:
+    """Warmth level must be an integer between 1 (coldest/airiest) and 5 (warmest)."""
+    return (
+        isinstance(warmth_level, int)
+        and not isinstance(warmth_level, bool)
+        and MIN_WARMTH_LEVEL <= warmth_level <= MAX_WARMTH_LEVEL
+    )
+
+
 class ClothingManager:
-        
+
     def sync_clothes(self, user_id: str, updated_since: datetime) -> tuple[list[Clothing], list[str]]:
-        updated_clothes: list[Clothing] = []
-        deleted_ids: list[str] = []
-        
-        statement = """
-            SELECT *
-            FROM clothing
-            WHERE user_id = %s AND updated_at > %s AND deleted_at IS NULL
-            ORDER BY updated_at ASC
-        """
-        
         try:
-            with Database.getConnection() as conn:
-                cursor = conn.cursor(dictionary=True)
-                cursor.execute(statement, (user_id, updated_since,))
+            updated_rows = clothing_queries.get_updated_since(user_id, updated_since)
+            deleted_rows = clothing_queries.get_deleted_ids_since(user_id, updated_since)
 
-                updated_rows = cursor.fetchall()
-                
-                for clothing in updated_rows:
-                    clothing = helper.ensure_dict(clothing)
-                    
-                    cursor.execute("SELECT season FROM clothing_seasons WHERE clothing_id = %s;", (clothing.get("clothing_id"),))
-                    seasons = cursor.fetchall()
-                    
-                    cursor.execute("SELECT tag FROM clothing_tags WHERE clothing_id = %s;", (clothing.get("clothing_id"),))
-                    tags = cursor.fetchall()
-                    
-                    seasons_list = [
-                        Season[helper.ensure_dict(season).get("season", "")]
-                        for season in seasons
-                    ]
+            updated_clothes: list[Clothing] = []
+            for row in updated_rows:
+                seasons = clothing_queries.get_seasons_by_clothing_id(row.clothing_id)
+                tags = clothing_queries.get_tags_by_clothing_id(row.clothing_id)
 
-                    tags_list = [
-                        ClothingTags[helper.ensure_dict(tag).get("tag", "")]
-                        for tag in tags
-                    ]
-
-                    clothing_instance = Clothing.from_dict(
-                        clothing,
-                        seasons_list,
-                        tags_list
+                updated_clothes.append(
+                    Clothing.from_dict(
+                        row.model_dump(),
+                        [Season[s.season] for s in seasons],
+                        [ClothingTags[t.tag] for t in tags],
                     )
-                    
-                    updated_clothes.append(clothing_instance)
-                    
-                cursor.execute("""
-                    SELECT clothing_id
-                    FROM clothing
-                    WHERE user_id = %s AND deleted_at IS NOT NULL AND deleted_at > %s
-                    """,
-                    (user_id, updated_since, )
                 )
-                
-                deleted_rows = cursor.fetchall()
-                
-                for row in deleted_rows:
-                    row = helper.ensure_dict(row)
-                    deleted_ids.append(row.get("clothing_id", ""))
+
+            deleted_ids = [row.clothing_id for row in deleted_rows]
         except Exception as e:
             logger.error(f"An unexpected error occurred while retrieving updated and deleted clothes for user {user_id}: {e}")
             logger.error(traceback.format_exc())
-            raise e
+            raise
 
         return updated_clothes, deleted_ids
 
-    def create_clothing(self, user_id: str, name: str, category: ClothingCategory, sub_category: ClothingSubCategory, image_id: str, color: str, seasons: list[Season], tags: list[ClothingTags], description: Optional[str] = None) -> Clothing:
+    def create_clothing(
+        self,
+        user_id: str,
+        name: str,
+        sub_category: ClothingSubCategory,
+        image_id: str,
+        color: str,
+        warmth_level: int,
+        seasons: list[Season],
+        tags: list[ClothingTags],
+        description: Optional[str] = None,
+    ) -> Clothing:
         color_regex = r"^#([A-Fa-f0-9]{6})$"
         if isinstance(color, str) and not re_match(color_regex, color):
             raise ValidationError
 
+        if not _is_valid_warmth_level(warmth_level):
+            raise ClothingWarmthLevelInvalidError
+
         if not os.path.exists(os.path.join("app", "static", "temp", image_id + ".webp")):
             raise ValidationError("The provided image file does not exist.")
-        
-        if len(name) < 3:
+
+        if len(name) < 3 or len(name) > 50:
             raise ValidationError
-        
-        if len(name) > 50:
-            raise ValidationError
-            
+
         if isinstance(description, str) and len(description) > 255:
             raise ValidationError
 
         clothing_id = str(uuid.uuid4())
 
-        clothing = Clothing(clothing_id, True, name, category, sub_category, color, datetime.now(timezone.utc), user_id, image_id, seasons, tags, description)
+        clothing = Clothing(
+            clothing_id,
+            True,
+            name,
+            sub_category.category,
+            sub_category,
+            color,
+            warmth_level,
+            datetime.now(timezone.utc),
+            user_id,
+            image_id,
+            seasons,
+            tags,
+            description,
+        )
 
         try:
-            with Database.getConnection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("INSERT INTO clothing(clothing_id, is_public, name, category, sub_category, image_id, user_id, color, description) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);", (clothing.clothing_id, clothing.is_public, clothing.name, clothing.category.name, clothing.sub_category.name, clothing.image_id, clothing.user_id, clothing.color, clothing.description))
-                for season in clothing.seasons:
-                    cursor.execute("INSERT INTO clothing_seasons(clothing_id, season) VALUES (%s, %s);", (clothing.clothing_id, season.name))
-                for tag in clothing.tags:
-                    cursor.execute("INSERT INTO clothing_tags(clothing_id, tag) VALUES (%s, %s);", (clothing.clothing_id, tag.name))
-                conn.commit()
-
-                image_manager.move_preview_image_to_permanent(image_id)
-        except IntegrityError as e:
-            raise ConflictError
+            with get_session() as session:
+                clothing_queries.create(
+                    session,
+                    clothing_id=clothing.clothing_id,
+                    is_public=clothing.is_public,
+                    name=clothing.name,
+                    category=clothing.sub_category.category.name,
+                    sub_category=clothing.sub_category.name,
+                    image_id=clothing.image_id,
+                    user_id=clothing.user_id,
+                    color=clothing.color,
+                    warmth_level=clothing.warmth_level,
+                    description=clothing.description,
+                )
+                clothing_queries.add_seasons(session, clothing.clothing_id, [s.name for s in clothing.seasons])
+                clothing_queries.add_tags(session, clothing.clothing_id, [t.name for t in clothing.tags])
         except Exception as e:
+            if "Duplicate entry" in str(e) or "IntegrityError" in type(e).__name__:
+                raise ConflictError
             logger.error(f"An unexpected error occurred while adding a new clothing to the database: {e}")
             logger.error(traceback.format_exc())
-            raise e
+            raise
+
+        image_manager.move_preview_image_to_permanent(image_id)
 
         return clothing
 
     def get_clothing_by_id(self, user_id: str, clothing_id: Optional[str]) -> Clothing:
         if not isinstance(clothing_id, str) or not clothing_id.strip():
             raise ClothingIDMissingError("The clothing ID is missing.")
-        
+
         try:
-            with Database.getConnection() as conn:
-                cursor = conn.cursor(dictionary=True)
-                cursor.execute("SELECT * FROM clothing WHERE clothing_id = %s AND user_id = %s AND deleted_at IS NULL;", (clothing_id, user_id,))
-                clothing = cursor.fetchone()
-                
-                if clothing is None:
-                    raise ClothingNotFoundError("The provided ID does not match any clothing in the database.")
-                
-                cursor.execute("SELECT season FROM clothing_seasons WHERE clothing_id = %s;", (clothing_id,))
-                seasons = cursor.fetchall()
-                
-                cursor.execute("SELECT tag FROM clothing_tags WHERE clothing_id = %s;", (clothing_id,))
-                tags = cursor.fetchall()
-                
-                clothing = Clothing.from_dict(clothing, [Season[season.get("season")] for season in seasons], [ClothingTags[tag.get("tag")] for tag in tags])
-        except ClothingNotFoundError as e:
-            raise e
+            row = clothing_queries.get_by_id(user_id, clothing_id)
+            if row is None:
+                raise ClothingNotFoundError("The provided ID does not match any clothing in the database.")
+
+            seasons = clothing_queries.get_seasons_by_clothing_id(clothing_id)
+            tags = clothing_queries.get_tags_by_clothing_id(clothing_id)
+
+            return Clothing.from_dict(
+                row.model_dump(),
+                [Season[s.season] for s in seasons],
+                [ClothingTags[t.tag] for t in tags],
+            )
+        except ClothingNotFoundError:
+            raise
         except Exception as e:
             logger.error(f"An unexpected error occurred while retrieving clothing by ID: {e}")
             logger.error(traceback.format_exc())
-            raise e
-        
-        return clothing
+            raise
 
-    def get_list_of_clothing_by_user_id(self, user_id: str, category: Optional[ClothingCategory] = None, seasons: Optional[list[Season]] = None, tags: Optional[list[ClothingTags]] = None, limit: int = 50, offset: int = 0, only_public: bool = True) -> list[Clothing]:
-        clothes_list: list[Clothing] = []
-        
-        where_clauses: list[str] = ["c.user_id = %s", "deleted_at IS NULL"]
-        params: list[str | bool | int] = [user_id]
-        
-        if only_public:
-            where_clauses.append("is_public = %s")
-            params.append(True)
-            
-        if category:
-            where_clauses.append("category = %s")
-            params.append(category)
-        
-        if seasons:
-            placeholder = ', '.join(["%s"] * len(seasons))
-            where_clauses.append(f"EXISTS (SELECT 1 FROM clothing_seasons cs WHERE cs.clothing_id = c.clothing_id AND cs.season IN ({placeholder}))")
-            params.extend(seasons)
-            
-        if tags:
-            placeholder = ', '.join(["%s"] * len(tags))
-            where_clauses.append(f"EXISTS (SELECT 1 FROM clothing_tags ct WHERE ct.clothing_id = c.clothing_id AND ct.tag IN ({placeholder}))")
-            params.extend(tags)
-        
-        params.extend([limit, offset])
-        
-        with Database.getConnection() as conn:
-            cursor = conn.cursor(dictionary=True)
-            query = f"SELECT c.* FROM clothing c WHERE { ' AND '.join(where_clauses)} ORDER BY c.created_at DESC LIMIT %s OFFSET %s;"
-            cursor.execute(query, tuple(params))
-            clothes = cursor.fetchall()
-            
-            if not clothes:
-                return []
-            
-            clothing_ids: list[str] = []
-            for clothing_dict in clothes:
-                if not isinstance(clothing_dict, dict):
-                    raise ValueError("Expected clothing_dict to be dict")
-                
-                clothing_id = clothing_dict.get("clothing_id")
-                
-                if not isinstance(clothing_id, str):
-                    raise ValueError("Expected clothing_id to be string")
-                
-                clothing_ids.append(clothing_id)
+    def get_list_of_clothing_by_user_id(
+        self,
+        user_id: str,
+        category: Optional[ClothingCategory] = None,
+        seasons: Optional[list[Season]] = None,
+        tags: Optional[list[ClothingTags]] = None,
+        limit: int = 50,
+        offset: int = 0,
+        only_public: bool = True,
+    ) -> list[Clothing]:
+        category_name = category.name if category else None
+        season_names = [s.name for s in seasons] if seasons else None
+        tag_names = [t.name for t in tags] if tags else None
 
-            seasons_by_clothing: dict[str, list[Season]] = {}
-            placeholder = ', '.join(["%s"]  * len(clothing_ids))
-            cursor.execute(f"SELECT clothing_id, season FROM clothing_seasons WHERE clothing_id IN ({placeholder})", tuple(clothing_ids))
-            clothing_seasons = cursor.fetchall()
-            
-            if not clothing_seasons:
-                raise ValueError("Expected clothing_seasons to not be empty")
-            
-            for seasons_dict in clothing_seasons:
-                if not isinstance(seasons_dict, dict):
-                    raise ValueError("Expected seasons_dict to be dict")
-                
-                clothing_id = seasons_dict.get("clothing_id")
-                clothing_season = seasons_dict.get("season")
-                
-                if not isinstance(clothing_id, str):
-                    raise ValueError("Expected clothing_id to be string")
-                
-                if not isinstance(clothing_season, str):
-                    raise ValueError("Expected clothing_season to be string")
-                
-                seasons_by_clothing.setdefault(clothing_id, []).append(Season[clothing_season])
-                
-            tags_by_clothing: dict[str, list[ClothingTags]] = {}
-            placeholder = ', '.join(["%s"]  * len(clothing_ids))
-            cursor.execute(f"SELECT clothing_id, tag FROM clothing_tags WHERE clothing_id IN ({placeholder})", tuple(clothing_ids))
-            clothing_tags = cursor.fetchall()
-            
-            if not clothing_tags:
-                raise ValueError("Expected clothing_tags to not be empty")
-            
-            for tags_dict in clothing_tags:
-                if not isinstance(tags_dict, dict):
-                    raise ValueError("Expected tags_dict to be dict")
-                
-                clothing_id = tags_dict.get("clothing_id")
-                clothing_tag = tags_dict.get("tag")
-                
-                if not isinstance(clothing_id, str):
-                    raise ValueError("Expected clothing_id to be string")
-                
-                if not isinstance(clothing_tag, str):
-                    raise ValueError("Expected clothing_tag to be string")
-                
-                tags_by_clothing.setdefault(clothing_id, []).append(ClothingTags[clothing_tag])
-                
-            for clothing_id, clothing_dict in zip(clothing_ids, clothes):
-                if not isinstance(clothing_dict, dict):
-                    raise ValueError("Expected clothing_dict to be dict")
-                
-                clothing = Clothing.from_dict(clothing_dict, seasons=seasons_by_clothing[clothing_id], tags=tags_by_clothing[clothing_id])
-                clothes_list.append(clothing)
-        
-        return clothes_list
-    
-    def update_clothing(self, user_id: str, clothing_id: str, name: Optional[str] = None, category: Optional[str] = None, description: Optional[str] = None, color: Optional[str] = None, seasons: Optional[list[str]] = None, tags: Optional[list[str]] = None, image_id: Optional[str] = None) -> Clothing:
-        fields = []
-        values = []
+        rows = clothing_queries.list_for_user(
+            user_id=user_id,
+            only_public=only_public,
+            category=category_name,
+            seasons=season_names,
+            tags=tag_names,
+            limit=limit,
+            offset=offset,
+        )
 
+        if not rows:
+            return []
+
+        clothing_ids = [row.clothing_id for row in rows]
+
+        seasons_by_clothing: dict[str, list[Season]] = {}
+        for season_row in clothing_queries.get_seasons_by_clothing_ids(clothing_ids):
+            seasons_by_clothing.setdefault(season_row.clothing_id, []).append(Season[season_row.season])
+
+        tags_by_clothing: dict[str, list[ClothingTags]] = {}
+        for tag_row in clothing_queries.get_tags_by_clothing_ids(clothing_ids):
+            tags_by_clothing.setdefault(tag_row.clothing_id, []).append(ClothingTags[tag_row.tag])
+
+        return [
+            Clothing.from_dict(
+                row.model_dump(),
+                seasons_by_clothing.get(row.clothing_id, []),
+                tags_by_clothing.get(row.clothing_id, []),
+            )
+            for row in rows
+        ]
+
+    def update_clothing(
+        self,
+        user_id: str,
+        clothing_id: str,
+        name: Optional[str] = None,
+        sub_category: Optional[str] = None,
+        description: Optional[str] = None,
+        color: Optional[str] = None,
+        warmth_level: Optional[int] = None,
+        seasons: Optional[list[str]] = None,
+        tags: Optional[list[str]] = None,
+        image_id: Optional[str] = None,
+    ) -> Clothing:
         try:
-            with Database.getConnection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT clothing_id, name, created_at, user_id, description, category, color, image_id  FROM clothing WHERE clothing_id = %s AND user_id = %s AND deleted_at IS NULL;", (clothing_id, user_id))
-                result = cursor.fetchone()
+            with get_session() as session:
+                current = clothing_queries.get_basic_for_update(session, user_id, clothing_id)
 
-                if result is None:
-                    raise ClothingNotFoundError("The provided ID does not match any clothing in the database for the current user.")
+                if current is None:
+                    raise ClothingNotFoundError(
+                        "The provided ID does not match any clothing in the database for the current user."
+                    )
+
+                fields: dict = {}
 
                 if isinstance(name, str):
                     if len(name) < 3:
-                        raise ClothingNameTooShortError("The provided name is too short, it has to be at least 3 characters long.")
-                    
+                        raise ClothingNameTooShortError(
+                            "The provided name is too short, it has to be at least 3 characters long."
+                        )
                     if len(name) > 50:
-                        raise ClothingNameTooLongError("The provided name is too long, it has to be at most 50 characters long.")
-                    
-                    if name != result[1]:
-                        fields.append("name = %s")
-                        values.append(name)
-                        
+                        raise ClothingNameTooLongError(
+                            "The provided name is too long, it has to be at most 50 characters long."
+                        )
+                    if name != current.name:
+                        fields["name"] = name
+
                 color_regex = r"^#([A-Fa-f0-9]{6})$"
                 if isinstance(color, str):
                     if not re_match(color_regex, color):
-                        raise ClothingColorMissingError("The color is missing or invalid. It should be a hex color code (e.g., #FFFFFF).")
-                    
-                    fields.append("color = %s")
-                    values.append(color)
+                        raise ClothingColorMissingError(
+                            "The color is missing or invalid. It should be a hex color code (e.g., #FFFFFF)."
+                        )
+                    fields["color"] = color
+
+                if warmth_level is not None:
+                    if not _is_valid_warmth_level(warmth_level):
+                        raise ClothingWarmthLevelInvalidError(
+                            "The warmth level is invalid. It has to be an integer between 1 and 5."
+                        )
+                    if warmth_level != current.warmth_level:
+                        fields["warmth_level"] = warmth_level
 
                 if isinstance(image_id, str):
                     if not os.path.exists(os.path.join("app", "static", "temp", image_id + ".webp")):
                         raise ClothingImageMissingError("The provided image file does not exist.")
-                    
+
                     image_manager.delete_clothing_image(image_id=image_id)
-                    fields.append("image_id = %s")
-                    values.append(image_id)
+                    fields["image_id"] = image_id
                     image_manager.move_preview_image_to_permanent(image_id)
 
-                if isinstance(category, str):
-                    if category.upper() not in ClothingCategory.__members__:
-                        raise ClothingCategoryMissingError("The provided category is not valid. It should be one of the following: " + ", ".join(ClothingCategory.__members__.keys()))
-                    
-                    fields.append("category = %s")
-                    values.append(category.upper())
+                if isinstance(sub_category, str):
+                    if sub_category.upper() not in ClothingSubCategory.__members__:
+                        raise ClothingSubCategoryMissingError(
+                            "The provided sub category is not valid. It should be one of the following: "
+                            + ", ".join(ClothingSubCategory.__members__.keys())
+                        )
+                    fields["sub_category"] = sub_category.upper()
 
-                if description is not None and description != result[4]:
+                if description is not None and description != current.description:
                     if len(description) > 255:
                         raise ClothingDescriptionTooLongError("The provided description is too long.")
-                    
-                    fields.append("description = %s")
-                    values.append(description)
+                    fields["description"] = description
 
                 if fields:
-                    cursor.execute(f"UPDATE clothing SET {', '.join(fields)} WHERE clothing_id = %s;", (*values, clothing_id))
+                    clothing_queries.update_fields(session, clothing_id, fields)
 
-                cursor.execute("SELECT season FROM clothing_seasons WHERE clothing_id = %s;", (clothing_id,))
-                existing_seasons: list[str] = [season[0] for season in cursor.fetchall()]
+                if seasons is not None:
+                    existing_seasons = [s.season for s in clothing_queries.get_seasons_in_session(session, clothing_id)]
+                    if seasons != existing_seasons:
+                        new_seasons = [s for s in seasons if s not in existing_seasons]
+                        old_seasons = [s for s in existing_seasons if s not in seasons]
 
-                if seasons is not None and seasons != existing_seasons:
-                    new_seasons = [season for season in seasons if season not in existing_seasons]
-                    old_seasons = [season for season in existing_seasons if season not in seasons]
-                    
-                    if old_seasons:
-                        placeholders = ", ".join(["%s"] * len(old_seasons))
-                        cursor.execute(f"DELETE FROM clothing_seasons WHERE clothing_id = %s AND season IN ({placeholders});", (clothing_id, *old_seasons))
+                        clothing_queries.remove_seasons(session, clothing_id, old_seasons)
 
-                    if new_seasons:
+                        normalized_new_seasons = []
                         for season in new_seasons:
                             if season.strip().upper() not in Season.__members__:
                                 raise SeasonsInvalidError(f"The provided season ({season}) is not valid.")
+                            normalized_new_seasons.append(season.strip().upper())
+                        clothing_queries.add_seasons(session, clothing_id, normalized_new_seasons)
 
-                            cursor.execute("INSERT INTO clothing_seasons(clothing_id, season) VALUES (%s, %s);", (clothing_id, season.strip().upper()))
+                if tags is not None:
+                    existing_tags = [t.tag for t in clothing_queries.get_tags_in_session(session, clothing_id)]
+                    if tags != existing_tags:
+                        new_tags = [t for t in tags if t not in existing_tags]
+                        old_tags = [t for t in existing_tags if t not in tags]
 
-                cursor.execute("SELECT tag FROM clothing_tags WHERE clothing_id = %s;", (clothing_id,))
-                existing_tags: list[str] = [tag[0] for tag in cursor.fetchall()]
+                        clothing_queries.remove_tags(session, clothing_id, old_tags)
 
-                if tags is not None and tags != existing_tags:
-                    new_tags = [tag for tag in tags if tag not in existing_tags]
-                    old_tags = [tag for tag in existing_tags if tag not in tags]
-                    
-                    if old_tags:
-                        placeholders = ", ".join(["%s"] * len(old_tags))
-                        cursor.execute(f"DELETE FROM clothing_tags WHERE clothing_id = %s AND tag IN ({placeholders});", (clothing_id, *old_tags))
-
-                    if new_tags:
+                        normalized_new_tags = []
                         for tag in new_tags:
                             if tag.strip().upper() not in ClothingTags.__members__:
                                 raise ClothingTagsInvalidError(f"The provided tag ({tag}) is not valid.")
-
-                            cursor.execute("INSERT INTO clothing_tags(clothing_id, tag) VALUES (%s, %s);", (clothing_id, tag.strip().upper()))
-                            
-                conn.commit()
-        except (ClothingValidationError, ClothingNotFoundError) as e:
-            raise e
+                            normalized_new_tags.append(tag.strip().upper())
+                        clothing_queries.add_tags(session, clothing_id, normalized_new_tags)
+        except (ClothingValidationError, ClothingNotFoundError):
+            raise
         except Exception as e:
             logger.error(f"An unexpected error occurred while updating clothing with ID {clothing_id}: {e}")
             logger.error(traceback.format_exc())
-            raise e
-        
+            raise
+
         return self.get_clothing_by_id(user_id, clothing_id)
-    
+
     def get_image_id_by_clothing_id(self, user_id: str, clothing_id: str) -> str:
-        """
-        Returns: image_id
-        """
+        """Returns the image_id for a clothing item owned by the user."""
         clothing = self.get_clothing_by_id(user_id, clothing_id)
         return clothing.image_id
-    
+
     def soft_delete_clothing_by_id(self, user_id: str, clothing_id: str) -> None:
-        with Database.getConnection() as conn:
-            cursor = conn.cursor()
-            
-            try:
-                cursor.execute("SELECT image_id FROM clothing WHERE clothing_id = %s AND user_id = %s AND deleted_at IS NULL;", (clothing_id, user_id,))
-                result = cursor.fetchone()
-                
-                if result is None:
+        try:
+            with get_session() as session:
+                image_row = clothing_queries.get_image_id(session, user_id, clothing_id)
+
+                if image_row is None:
                     raise ClothingNotFoundError
-                
-                image_id, = result
-                
-                cursor.execute("SELECT outfit_id, COUNT(*) as item_count FROM outfit_clothing WHERE outfit_id IN ( SELECT outfit_id FROM outfit_clothing WHERE clothing_id = %s) GROUP BY outfit_id", (clothing_id, ))
-                affected_outfits = cursor.fetchall()
-                
-                cursor.execute("UPDATE clothing SET deleted_at = NOW() WHERE clothing_id = %s AND user_id = %s AND deleted_at IS NULL;", (clothing_id, user_id, ))
-                
-                cursor.execute("DELETE FROM outfit_clothing WHERE clothing_id = %s;", (clothing_id, ))
-                
-                for outfit_id, item_count in affected_outfits:
-                    if cast(int, item_count) <= 2:
-                        cursor.execute("UPDATE outfits SET deleted_at = NOW() WHERE outfit_id = %s", (cast(str, outfit_id), ))
-                        
-                conn.commit()
-                
-                image_manager.delete_clothing_image(cast(str, image_id))
-            except ClothingNotFoundError:
-                raise
-            except Exception as e:
-                conn.rollback()
-                logger.error(f"Unexpected error while soft deleting clothing {clothing_id}: {e}")
-                raise
-            finally:
-                cursor.close()
-            
+
+                affected_outfits = clothing_queries.get_outfits_affected_by_clothing(session, clothing_id)
+
+                clothing_queries.soft_delete(session, user_id, clothing_id)
+                outfit_queries.remove_clothing_from_outfits(session, clothing_id)
+
+                for affected in affected_outfits:
+                    if cast(int, affected.item_count) <= 2:
+                        outfit_queries.soft_delete_by_id(session, affected.outfit_id)
+
+            image_manager.delete_clothing_image(image_row.image_id)
+        except ClothingNotFoundError:
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error while soft deleting clothing {clothing_id}: {e}")
+            raise
+
+
 clothing_manager = ClothingManager()
