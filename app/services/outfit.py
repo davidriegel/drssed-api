@@ -9,7 +9,7 @@ from typing import Optional
 from app.core.database import get_session
 from app.core.logging import get_logger
 from app.models.clothing import Clothing, ClothingCategory, ClothingTags
-from app.models.outfit import CanvasPlacement, Outfit, OutfitTags, OutfitSummary
+from app.models.outfit import CanvasPlacement, Outfit, OutfitSummary, OutfitTags
 from app.models.season import Season
 from app.persistence.queries import clothing as clothing_queries
 from app.persistence.queries import outfit as outfit_queries
