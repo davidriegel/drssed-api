@@ -121,7 +121,6 @@ class Clothing:
     image_id: str
     seasons: list[Season]
     tags: list[ClothingTags]
-    description: Optional[str] = None
 
     def to_dict(self) -> dict:
         data = asdict(self)
@@ -143,9 +142,8 @@ class Clothing:
             user_id=core.get("user_id"),
             image_id=core.get("image_id"),
             seasons=seasons,
-            tags=tags,
-            description=core.get("description")
+            tags=tags
         )
 
 assert set(ClothingSubCategory) == set(_SUBCATEGORY_PARENTS), \
-    f"Fehlendes Parent-Mapping: {set(ClothingSubCategory) - set(_SUBCATEGORY_PARENTS)}"
+    f"Missing Parent-Mapping: {set(ClothingSubCategory) - set(_SUBCATEGORY_PARENTS)}"

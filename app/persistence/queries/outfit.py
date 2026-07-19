@@ -46,7 +46,7 @@ def get_by_id_for_user(user_id: str, outfit_id: str) -> OutfitRow | None:
     with get_session() as session:
         return session.select_one_or_none(
             """
-            SELECT outfit_id, is_public, is_favorite, name, description, created_at, updated_at, user_id
+            SELECT outfit_id, is_public, is_favorite, name, created_at, updated_at, user_id
             FROM outfits
             WHERE outfit_id = :outfit_id AND user_id = :user_id AND deleted_at IS NULL
             """,
@@ -95,7 +95,7 @@ def get_updated_since(user_id: str, updated_since: datetime) -> list[OutfitRow]:
     with get_session() as session:
         return session.select(
             """
-            SELECT outfit_id, is_public, is_favorite, name, description, created_at, updated_at, user_id
+            SELECT outfit_id, is_public, is_favorite, name, created_at, updated_at, user_id
             FROM outfits
             WHERE user_id = :user_id AND updated_at > :updated_since AND deleted_at IS NULL
             ORDER BY updated_at ASC
@@ -146,7 +146,7 @@ def list_for_user(
         list_params = {**params, "limit": limit, "offset": offset}
         rows = session.select(
             f"""
-            SELECT outfit_id, is_public, is_favorite, name, description, created_at, updated_at, user_id
+            SELECT outfit_id, is_public, is_favorite, name, created_at, updated_at, user_id
             FROM outfits
             WHERE {where_clause}
             ORDER BY created_at DESC
@@ -167,22 +167,20 @@ def create(
     is_public: bool,
     is_favorite: bool,
     name: str,
-    user_id: str,
-    description: str | None,
+    user_id: str
 ) -> None:
     """Inserts a new outfit row."""
     session.execute(
         """
-        INSERT INTO outfits (outfit_id, is_public, is_favorite, name, user_id, description)
-        VALUES (:outfit_id, :is_public, :is_favorite, :name, :user_id, :description)
+        INSERT INTO outfits (outfit_id, is_public, is_favorite, name, user_id)
+        VALUES (:outfit_id, :is_public, :is_favorite, :name, :user_id)
         """,
         {
             "outfit_id": outfit_id,
             "is_public": is_public,
             "is_favorite": is_favorite,
             "name": name,
-            "user_id": user_id,
-            "description": description,
+            "user_id": user_id
         },
     )
 
@@ -284,7 +282,7 @@ def get_basic_for_patch(session, user_id: str, outfit_id: str) -> OutfitRow | No
     """Fetches the current outfit row for comparison during patch."""
     return session.select_one_or_none(
         """
-        SELECT outfit_id, is_public, is_favorite, name, description, created_at, updated_at, user_id
+        SELECT outfit_id, is_public, is_favorite, name, created_at, updated_at, user_id
         FROM outfits
         WHERE outfit_id = :outfit_id AND user_id = :user_id AND deleted_at IS NULL
         """,
@@ -316,7 +314,7 @@ def update_fields(session, outfit_id: str, fields: dict) -> None:
     if not fields:
         return
 
-    allowed_fields = {"name", "is_public", "is_favorite", "description"}
+    allowed_fields = {"name", "is_public", "is_favorite"}
     set_clauses = []
     params: dict = {"outfit_id": outfit_id}
 

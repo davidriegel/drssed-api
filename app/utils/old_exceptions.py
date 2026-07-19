@@ -84,11 +84,6 @@ class OutfitNameTooLongError(Exception):
         self.message = message
         super().__init__(self.message)
 
-class OutfitDescriptionTooLongError(Exception):
-    def __init__(self, message="Outfit description has to be at most 255 characters long"):
-        self.message = message
-        super().__init__(self.message)
-
 class OutfitNotFoundError(Exception):
     def __init__(self, message="Outfit not found"):
         self.message = message

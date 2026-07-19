@@ -11,7 +11,6 @@ class OutfitRow(BaseModel):
     is_public: bool
     is_favorite: bool
     name: str
-    description: str | None
     created_at: datetime
     updated_at: datetime
     user_id: str
