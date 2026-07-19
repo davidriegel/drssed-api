@@ -11,8 +11,8 @@ from app.persistence.schemas.outfit import (
     OutfitTagRow,
 )
 
-
 # Cleanup helpers
+
 
 def get_outfit_ids_for_user(session, user_id: str) -> list[FileReference]:
     """Returns all outfit IDs owned by a user (used as collage filenames)."""
@@ -40,6 +40,7 @@ def get_all_outfit_ids(session) -> list[FileReference]:
 
 
 # Reads
+
 
 def get_by_id_for_user(user_id: str, outfit_id: str) -> OutfitRow | None:
     """Fetches a single active outfit row owned by the given user."""
@@ -161,13 +162,9 @@ def list_for_user(
 
 # Writes (session-parameter — meant for use inside a transaction)
 
+
 def create(
-    session,
-    outfit_id: str,
-    is_public: bool,
-    is_favorite: bool,
-    name: str,
-    user_id: str
+    session, outfit_id: str, is_public: bool, is_favorite: bool, name: str, user_id: str
 ) -> None:
     """Inserts a new outfit row."""
     session.execute(
@@ -180,7 +177,7 @@ def create(
             "is_public": is_public,
             "is_favorite": is_favorite,
             "name": name,
-            "user_id": user_id
+            "user_id": user_id,
         },
     )
 
@@ -240,9 +237,7 @@ def remove_seasons(session, outfit_id: str, seasons: list[str]) -> None:
         key = f"season_{i}"
         placeholders.append(f":{key}")
         params[key] = season
-    sql = (
-        f"DELETE FROM outfit_seasons WHERE outfit_id = :outfit_id AND season IN ({', '.join(placeholders)})"
-    )
+    sql = f"DELETE FROM outfit_seasons WHERE outfit_id = :outfit_id AND season IN ({', '.join(placeholders)})"
     session.execute(sql, params)
 
 
@@ -256,9 +251,7 @@ def remove_tags(session, outfit_id: str, tags: list[str]) -> None:
         key = f"tag_{i}"
         placeholders.append(f":{key}")
         params[key] = tag
-    sql = (
-        f"DELETE FROM outfit_tags WHERE outfit_id = :outfit_id AND tag IN ({', '.join(placeholders)})"
-    )
+    sql = f"DELETE FROM outfit_tags WHERE outfit_id = :outfit_id AND tag IN ({', '.join(placeholders)})"
     session.execute(sql, params)
 
 

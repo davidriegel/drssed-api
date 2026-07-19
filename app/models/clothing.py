@@ -1,21 +1,24 @@
-from enum import Enum
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from typing import Optional
+from enum import Enum
+
 from app.models.season import Season
-from dataclasses import dataclass, asdict
+
 
 class ClothingTags(str, Enum):
     CASUAL = "CASUAL"
     FORMAL = "FORMAL"
     SPORTS = "SPORTS"
     VINTAGE = "VINTAGE"
-    
+
+
 class ClothingCategory(str, Enum):
     JACKET = "JACKET"
     TOP = "TOP"
-    BOTTOM = "BOTTOM" 
+    BOTTOM = "BOTTOM"
     ONE_PIECE = "ONE_PIECE"
-    
+
+
 class ClothingSubCategory(str, Enum):
     # TOP
     T_SHIRT = "T_SHIRT"
@@ -63,6 +66,7 @@ class ClothingSubCategory(str, Enum):
     def category(self) -> "ClothingCategory":
         return _SUBCATEGORY_PARENTS[self]
 
+
 _SUBCATEGORY_PARENTS: dict[ClothingSubCategory, ClothingCategory] = {
     # TOP
     ClothingSubCategory.T_SHIRT: ClothingCategory.TOP,
@@ -76,7 +80,6 @@ _SUBCATEGORY_PARENTS: dict[ClothingSubCategory, ClothingCategory] = {
     ClothingSubCategory.CARDIGAN: ClothingCategory.TOP,
     ClothingSubCategory.VEST: ClothingCategory.TOP,
     ClothingSubCategory.TURTLENECK: ClothingCategory.TOP,
-
     # BOTTOM
     ClothingSubCategory.JEANS: ClothingCategory.BOTTOM,
     ClothingSubCategory.TROUSERS: ClothingCategory.BOTTOM,
@@ -86,7 +89,6 @@ _SUBCATEGORY_PARENTS: dict[ClothingSubCategory, ClothingCategory] = {
     ClothingSubCategory.LEGGINGS: ClothingCategory.BOTTOM,
     ClothingSubCategory.SHORTS: ClothingCategory.BOTTOM,
     ClothingSubCategory.SKIRT: ClothingCategory.BOTTOM,
-
     # JACKET
     ClothingSubCategory.DENIM_JACKET: ClothingCategory.JACKET,
     ClothingSubCategory.SPORTS_JACKET: ClothingCategory.JACKET,
@@ -99,13 +101,13 @@ _SUBCATEGORY_PARENTS: dict[ClothingSubCategory, ClothingCategory] = {
     ClothingSubCategory.COAT: ClothingCategory.JACKET,
     ClothingSubCategory.TRENCH_COAT: ClothingCategory.JACKET,
     ClothingSubCategory.BLAZER: ClothingCategory.JACKET,
-
     # ONE_PIECE
     ClothingSubCategory.DRESS: ClothingCategory.ONE_PIECE,
     ClothingSubCategory.JUMPSUIT: ClothingCategory.ONE_PIECE,
     ClothingSubCategory.OVERALL: ClothingCategory.ONE_PIECE,
     ClothingSubCategory.SUIT: ClothingCategory.ONE_PIECE,
 }
+
 
 @dataclass
 class Clothing:
@@ -125,25 +127,31 @@ class Clothing:
     def to_dict(self) -> dict:
         data = asdict(self)
         if isinstance(data["created_at"], datetime):
-            data["created_at"] = data["created_at"].replace(tzinfo=timezone.utc).isoformat(timespec="seconds")
+            data["created_at"] = (
+                data["created_at"]
+                .replace(tzinfo=timezone.utc)
+                .isoformat(timespec="seconds")
+            )
         return data
 
     @classmethod
     def from_dict(cls, core: dict, seasons: list[Season], tags: list[ClothingTags]):
         return Clothing(
-            clothing_id=core.get("clothing_id"),
-            is_public=bool(core.get("is_public")),
-            name=core.get("name"),
-            color=core.get("color"),
-            category=ClothingCategory[core.get("category")],
-            sub_category=ClothingSubCategory[core.get("sub_category")],
-            warmth_level=core.get("warmth_level"),
-            created_at=core.get("created_at"),
-            user_id=core.get("user_id"),
-            image_id=core.get("image_id"),
+            clothing_id=core["clothing_id"],
+            is_public=bool(core["is_public"]),
+            name=core["name"],
+            color=core["color"],
+            category=ClothingCategory(core["category"]),
+            sub_category=ClothingSubCategory(core["sub_category"]),
+            warmth_level=core["warmth_level"],
+            created_at=core["created_at"],
+            user_id=core["user_id"],
+            image_id=core["image_id"],
             seasons=seasons,
-            tags=tags
+            tags=tags,
         )
 
-assert set(ClothingSubCategory) == set(_SUBCATEGORY_PARENTS), \
+
+assert set(ClothingSubCategory) == set(_SUBCATEGORY_PARENTS), (
     f"Missing Parent-Mapping: {set(ClothingSubCategory) - set(_SUBCATEGORY_PARENTS)}"
+)

@@ -47,9 +47,9 @@ db = spec.add_config(
 def get_session() -> Generator:
     """
     Provide a database session with automatic commit/rollback.
-    
+
     Use for write operations or multi-statement transactions:
-    
+
         with get_session() as session:
             session.execute("INSERT INTO ...", params)
             session.execute("INSERT INTO ...", params)

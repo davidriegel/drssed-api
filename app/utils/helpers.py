@@ -1,13 +1,17 @@
 __all__ = ["helper"]
 
 from datetime import datetime, timezone
-from ..models.outfit import CanvasPlacement
-from flask import has_request_context, g, request
-from typing import Any, cast, Sequence
-from app.core.logging import get_logger
 from decimal import Decimal
+from typing import Any, Sequence, cast
+
+from flask import g, has_request_context, request
+
+from app.core.logging import get_logger
+
+from ..models.outfit import CanvasPlacement
 
 logger = get_logger()
+
 
 class HelperFunctions:
     @staticmethod
@@ -19,9 +23,9 @@ class HelperFunctions:
         """
         if not isinstance(result, dict):
             raise TypeError(f"Expected a dictionary, but got {type(result).__name__}")
-        
+
         return result
-    
+
     @staticmethod
     def build_paginated_response(items, limit, offset, total):
         """
@@ -31,32 +35,27 @@ class HelperFunctions:
         :param total: Total amount of items in database
         :return: Dictionary to return
         """
-        return {
-            "items": items,
-            "limit": limit,
-            "offset": offset,
-            "total": total
-        }
-    
+        return {"items": items, "limit": limit, "offset": offset, "total": total}
+
     def get_request_context(self) -> dict:
         """
         :return: Context dictionary of request
         """
         if not has_request_context():
             return {}
-        
+
         context = {
-            'method': request.method,
-            'path': request.path,
-            'endpoint': request.endpoint,
-            'ip': request.remote_addr
+            "method": request.method,
+            "path": request.path,
+            "endpoint": request.endpoint,
+            "ip": request.remote_addr,
         }
-        
-        if hasattr(g, 'user_id'):
-            context['user_id'] = g.user_id
-        
+
+        if hasattr(g, "user_id"):
+            context["user_id"] = g.user_id
+
         return context
-    
+
     def _parse_canvas_row(self, row: Sequence) -> CanvasPlacement:
         clothing_id, x, y, z, scale, rotation = row
         return CanvasPlacement(
@@ -65,10 +64,12 @@ class HelperFunctions:
             y=float(cast(Decimal, y)),
             z=int(cast(Decimal, z)),
             scale=float(cast(Decimal, scale)),
-            rotation=float(cast(Decimal, rotation))
+            rotation=float(cast(Decimal, rotation)),
         )
 
+
 helper = HelperFunctions()
+
 
 def ensure_utc(dt: datetime) -> datetime:
     return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt

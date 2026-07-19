@@ -9,7 +9,7 @@ from typing import Optional
 from app.core.database import get_session
 from app.core.logging import get_logger
 from app.models.clothing import Clothing, ClothingCategory, ClothingTags
-from app.models.outfit import CanvasPlacement, Outfit, OutfitTags
+from app.models.outfit import CanvasPlacement, Outfit, OutfitSummary, OutfitTags
 from app.models.season import Season
 from app.persistence.queries import clothing as clothing_queries
 from app.persistence.queries import outfit as outfit_queries
@@ -62,8 +62,14 @@ class OutfitManager:
         """Generate new outfit options, optionally based on season, tags or anchor clothing items."""
         clothing_tags = [ClothingTags[t.name] for t in tags] if tags else None
 
-        suitable_clothes: list[Clothing] = clothing_manager.get_list_of_clothing_by_user_id(
-            user_id, seasons=seasons, tags=clothing_tags, limit=1000, only_public=False
+        suitable_clothes: list[Clothing] = (
+            clothing_manager.get_list_of_clothing_by_user_id(
+                user_id,
+                seasons=seasons,
+                tags=clothing_tags,
+                limit=1000,
+                only_public=False,
+            )
         )  # high limit, outfit generation needs full filtered pool
 
         if not suitable_clothes:
@@ -137,7 +143,9 @@ class OutfitManager:
 
         return placements
 
-    def sync_outfits(self, user_id: str, updated_since: datetime) -> tuple[list[Outfit], list[str]]:
+    def sync_outfits(
+        self, user_id: str, updated_since: datetime
+    ) -> tuple[list[Outfit], list[str]]:
         try:
             updated_rows = outfit_queries.get_updated_since(user_id, updated_since)
             deleted_rows = outfit_queries.get_deleted_ids_since(user_id, updated_since)
@@ -159,7 +167,9 @@ class OutfitManager:
 
             deleted_ids = [row.outfit_id for row in deleted_rows]
         except Exception as e:
-            logger.error(f"An unexpected error occurred while retrieving updated and deleted outfits for user {user_id}: {e}")
+            logger.error(
+                f"An unexpected error occurred while retrieving updated and deleted outfits for user {user_id}: {e}"
+            )
             logger.error(traceback.format_exc())
             raise
 
@@ -173,36 +183,48 @@ class OutfitManager:
         seasons: Optional[list[str]],
         tags: Optional[list[str]],
         is_public: bool,
-        is_favorite: bool
+        is_favorite: bool,
     ) -> Outfit:
         if not isinstance(name, str) or not name.strip():
             raise OutfitNameMissingError("The provided name is missing or invalid.")
 
         if len(name) < 3:
-            raise OutfitNameTooShortError("The provided name is too short, it has to be at least 3 characters long.")
+            raise OutfitNameTooShortError(
+                "The provided name is too short, it has to be at least 3 characters long."
+            )
 
         if len(name) > 50:
-            raise OutfitNameTooLongError("The provided name is too long, it has to be at most 50 characters long.")
+            raise OutfitNameTooLongError(
+                "The provided name is too long, it has to be at most 50 characters long."
+            )
 
         seasons_typed: Optional[list[Season]] = None
         if seasons is not None:
-            if not isinstance(seasons, list) or not all(isinstance(season, str) for season in seasons):
+            if not isinstance(seasons, list) or not all(
+                isinstance(season, str) for season in seasons
+            ):
                 raise SeasonsInvalidError("Seasons must be a list of strings.")
 
             for season in seasons:
                 if season.strip().upper() not in Season.__members__:
-                    raise SeasonsInvalidError(f"The provided season ({season}) is not valid.")
+                    raise SeasonsInvalidError(
+                        f"The provided season ({season}) is not valid."
+                    )
 
             seasons_typed = [Season[season.strip().upper()] for season in seasons]
 
         tags_typed: Optional[list[OutfitTags]] = None
         if tags is not None:
-            if not isinstance(tags, list) or not all(isinstance(tag, str) for tag in tags):
+            if not isinstance(tags, list) or not all(
+                isinstance(tag, str) for tag in tags
+            ):
                 raise OutfitTagsInvalidError("Tags must be a list of strings.")
 
             for tag in tags:
                 if tag.strip().upper() not in OutfitTags.__members__:
-                    raise OutfitTagsInvalidError(f"The provided tag ({tag}) is not valid.")
+                    raise OutfitTagsInvalidError(
+                        f"The provided tag ({tag}) is not valid."
+                    )
 
             tags_typed = [OutfitTags[tag.strip().upper()] for tag in tags]
 
@@ -234,7 +256,9 @@ class OutfitManager:
         with get_session() as session:
             for cid in clothing_ids:
                 if not clothing_queries.exists_active_for_user(session, user_id, cid):
-                    raise OutfitClothingIDInvalidError(f"Clothing ID {cid} invalid or not owned by user.")
+                    raise OutfitClothingIDInvalidError(
+                        f"Clothing ID {cid} invalid or not owned by user."
+                    )
 
         validated_items = []
         clothing_canvas: list[CanvasPlacement] = []
@@ -271,7 +295,7 @@ class OutfitManager:
             user_id=user_id,
             scene=clothing_canvas,
             seasons=seasons_typed,
-            tags=tags_typed
+            tags=tags_typed,
         )
 
         try:
@@ -282,13 +306,17 @@ class OutfitManager:
                     is_public=is_public,
                     is_favorite=is_favorite,
                     name=name,
-                    user_id=user_id
+                    user_id=user_id,
                 )
 
                 if outfit.seasons:
-                    outfit_queries.add_seasons(session, outfit_id, [s.name for s in outfit.seasons])
+                    outfit_queries.add_seasons(
+                        session, outfit_id, [s.name for s in outfit.seasons]
+                    )
                 if outfit.tags:
-                    outfit_queries.add_tags(session, outfit_id, [t.name for t in outfit.tags])
+                    outfit_queries.add_tags(
+                        session, outfit_id, [t.name for t in outfit.tags]
+                    )
 
                 outfit_queries.add_clothing_placements(
                     session,
@@ -322,11 +350,22 @@ class OutfitManager:
             row = outfit_queries.get_by_id_for_user(user_id, outfit_id)
 
             if row is None:
-                raise OutfitNotFoundError("The provided ID does not match any outfit in the database.")
+                raise OutfitNotFoundError(
+                    "The provided ID does not match any outfit in the database."
+                )
 
-            seasons = [Season[s.season] for s in outfit_queries.get_seasons_by_outfit_id(outfit_id)]
-            tags = [OutfitTags[t.tag] for t in outfit_queries.get_tags_by_outfit_id(outfit_id)]
-            clothing_canvas = [_canvas_from_row(c) for c in outfit_queries.get_clothing_canvas(outfit_id)]
+            seasons = [
+                Season[s.season]
+                for s in outfit_queries.get_seasons_by_outfit_id(outfit_id)
+            ]
+            tags = [
+                OutfitTags[t.tag]
+                for t in outfit_queries.get_tags_by_outfit_id(outfit_id)
+            ]
+            clothing_canvas = [
+                _canvas_from_row(c)
+                for c in outfit_queries.get_clothing_canvas(outfit_id)
+            ]
 
             return Outfit(
                 outfit_id=row.outfit_id,
@@ -338,14 +377,16 @@ class OutfitManager:
                 user_id=user_id,
                 scene=clothing_canvas,
                 seasons=seasons,
-                tags=tags
+                tags=tags,
             )
         except OutfitNotFoundError:
             raise
         except OutfitPermissionError:
             raise
         except Exception as e:
-            logger.error(f"An unexpected error occurred while retrieving outfit with ID {outfit_id}: {e}")
+            logger.error(
+                f"An unexpected error occurred while retrieving outfit with ID {outfit_id}: {e}"
+            )
             logger.error(traceback.format_exc())
             raise
 
@@ -355,12 +396,14 @@ class OutfitManager:
         limit: int = 50,
         offset: int = 0,
         include_private: bool = False,
-    ) -> tuple[list[Outfit], int]:
+    ) -> tuple[list[OutfitSummary], int]:
         if not isinstance(user_id, str) or not user_id.strip():
             raise OutfitIDMissingError("The provided user ID is missing or invalid.")
 
         if not isinstance(limit, int) or limit <= 0 or limit > 100:
-            raise OutfitLimitInvalidError("The limit must be a positive integer and cannot exceed 100.")
+            raise OutfitLimitInvalidError(
+                "The limit must be a positive integer and cannot exceed 100."
+            )
 
         if not isinstance(offset, int) or offset < 0:
             raise OutfitOffsetInvalidError("The offset must be a positive integer.")
@@ -373,21 +416,22 @@ class OutfitManager:
                 offset=offset,
             )
 
-            outfit_list: list[Outfit] = []
+            outfit_list: list[OutfitSummary] = []
             for row in rows:
                 season_rows = outfit_queries.get_seasons_by_outfit_id(row.outfit_id)
                 tag_rows = outfit_queries.get_tags_by_outfit_id(row.outfit_id)
 
                 outfit_list.append(
-                    Outfit.from_dict(
+                    OutfitSummary.from_dict(
                         row.model_dump(),
-                        None,
-                        [Season[s.season] for s in season_rows],
-                        [OutfitTags[t.tag] for t in tag_rows],
+                        [Season(s.season) for s in season_rows],
+                        [OutfitTags(t.tag) for t in tag_rows],
                     )
                 )
         except Exception as e:
-            logger.error(f"An unexpected error occurred while retrieving outfits for user {user_id}: {e}")
+            logger.error(
+                f"An unexpected error occurred while retrieving outfits for user {user_id}: {e}"
+            )
             logger.error(traceback.format_exc())
             raise
 
@@ -402,11 +446,13 @@ class OutfitManager:
         is_public: Optional[bool] = None,
         seasons: Optional[list[str]] = None,
         tags: Optional[list[str]] = None,
-        scene: Optional[dict] = None,
+        scene: Optional[list[dict]] = None,
     ) -> Outfit:
         try:
             with get_session() as session:
-                current = outfit_queries.get_basic_for_patch(session, user_id, outfit_id)
+                current = outfit_queries.get_basic_for_patch(
+                    session, user_id, outfit_id
+                )
 
                 if current is None:
                     raise OutfitNotFoundError
@@ -440,13 +486,17 @@ class OutfitManager:
         except (OutfitValidationError, OutfitNotFoundError):
             raise
         except Exception as e:
-            logger.error(f"An unexpected error occurred while updating outfit with ID {outfit_id}: {e}")
+            logger.error(
+                f"An unexpected error occurred while updating outfit with ID {outfit_id}: {e}"
+            )
             logger.error(traceback.format_exc())
             raise
 
         return self.get_outfit_by_id(user_id, outfit_id)
 
-    def _update_outfit_scene(self, session, user_id: str, outfit_id: str, scene: list) -> None:
+    def _update_outfit_scene(
+        self, session, user_id: str, outfit_id: str, scene: list
+    ) -> None:
         if len(scene) < 2:
             raise OutfitSceneInvalidError("scene.items must contain at least 2 items.")
 
@@ -463,7 +513,9 @@ class OutfitManager:
 
         for cid in clothing_ids:
             if not clothing_queries.exists_for_user(session, user_id, cid):
-                raise OutfitClothingIDInvalidError(f"Clothing ID {cid} invalid or not owned by user.")
+                raise OutfitClothingIDInvalidError(
+                    f"Clothing ID {cid} invalid or not owned by user."
+                )
 
         validated_items = []
         clothing_canvas: list[CanvasPlacement] = []
@@ -488,7 +540,9 @@ class OutfitManager:
                 )
             )
 
-        image_manager.generate_outfit_preview(outfit_id=outfit_id, items=validated_items)
+        image_manager.generate_outfit_preview(
+            outfit_id=outfit_id, items=validated_items
+        )
 
         outfit_queries.clear_clothing_placements(session, outfit_id)
         outfit_queries.add_clothing_placements(
@@ -507,8 +561,12 @@ class OutfitManager:
             ],
         )
 
-    def _update_outfit_seasons(self, session, outfit_id: str, new_seasons: list[str]) -> None:
-        existing_seasons = {s.season for s in outfit_queries.get_seasons_in_session(session, outfit_id)}
+    def _update_outfit_seasons(
+        self, session, outfit_id: str, new_seasons: list[str]
+    ) -> None:
+        existing_seasons = {
+            s.season for s in outfit_queries.get_seasons_in_session(session, outfit_id)
+        }
         new_seasons_set = {season.strip().upper() for season in new_seasons}
 
         for season in new_seasons_set:
@@ -522,7 +580,9 @@ class OutfitManager:
         outfit_queries.add_seasons(session, outfit_id, list(seasons_to_add))
 
     def _update_outfit_tags(self, session, outfit_id: str, new_tags: list[str]) -> None:
-        existing_tags = {t.tag for t in outfit_queries.get_tags_in_session(session, outfit_id)}
+        existing_tags = {
+            t.tag for t in outfit_queries.get_tags_in_session(session, outfit_id)
+        }
         new_tags_set = {tag.strip().upper() for tag in new_tags}
 
         for tag in new_tags_set:
@@ -538,14 +598,18 @@ class OutfitManager:
     def soft_delete_outfit_by_id(self, user_id: str, outfit_id: str) -> None:
         try:
             with get_session() as session:
-                affected = outfit_queries.soft_delete_for_user(session, user_id, outfit_id)
+                affected = outfit_queries.soft_delete_for_user(
+                    session, user_id, outfit_id
+                )
 
                 if affected == 0:
                     raise OutfitNotFoundError
         except OutfitNotFoundError:
             raise
         except Exception as e:
-            logger.error(f"Unexpected error while soft deleting outfit {outfit_id}: {e}")
+            logger.error(
+                f"Unexpected error while soft deleting outfit {outfit_id}: {e}"
+            )
             raise
 
         image_manager.delete_outfit_preview(outfit_id)

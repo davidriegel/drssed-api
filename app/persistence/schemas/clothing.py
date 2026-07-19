@@ -1,9 +1,11 @@
 from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict
 
 
 class ClothingRow(BaseModel):
     """All columns from the clothing table needed by the domain model."""
+
     model_config = ConfigDict(frozen=True)
 
     clothing_id: str

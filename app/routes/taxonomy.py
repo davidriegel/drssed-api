@@ -10,7 +10,9 @@ taxonomy = Blueprint("taxonomy", __name__)
 
 
 def _build_taxonomy() -> dict[str, list[str]]:
-    categories: dict[str, list[str]] = {category.name: [] for category in ClothingCategory}
+    categories: dict[str, list[str]] = {
+        category.name: [] for category in ClothingCategory
+    }
     for sub_category in ClothingSubCategory:
         categories[sub_category.category.name].append(sub_category.name)
     return categories
@@ -22,9 +24,9 @@ _TAXONOMY_ETAG = hashlib.sha256(
 ).hexdigest()
 
 
-@taxonomy.route('', methods=['GET'])
-@taxonomy.route('/', methods=['GET'])
-@limiter.limit('30 per minute')
+@taxonomy.route("", methods=["GET"])
+@taxonomy.route("/", methods=["GET"])
+@limiter.limit("30 per minute")
 def get_taxonomy():
     response = jsonify(_TAXONOMY)
     response.set_etag(_TAXONOMY_ETAG)

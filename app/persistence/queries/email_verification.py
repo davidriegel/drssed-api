@@ -19,7 +19,7 @@ def get_by_token(token: str) -> EmailVerificationToken | None:
 def create(session, token: EmailVerificationToken) -> None:
     """
     Inserts a new email verification token.
-    
+
     Session-parameter version: typically called inside a transaction that
     also expires previous tokens for the same user.
     """
@@ -40,7 +40,7 @@ def create(session, token: EmailVerificationToken) -> None:
 def mark_as_used(session, token: str) -> None:
     """
     Marks an email verification token as used.
-    
+
     Session-parameter version: typically called inside a transaction with
     user_queries.mark_email_as_verified.
     """
@@ -57,7 +57,7 @@ def mark_as_used(session, token: str) -> None:
 def expire_for_user(session, user_id: str) -> None:
     """
     Expires all active email verification tokens for a user.
-    
+
     Session-parameter version: typically called inside a transaction that
     also creates a new token.
     """

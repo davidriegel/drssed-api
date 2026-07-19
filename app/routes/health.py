@@ -24,13 +24,13 @@ def _mysql_health() -> dict:
         return {"status": "error", "error": str(e)}
 
 
-@health.route('/live', methods=['GET'])
+@health.route("/live", methods=["GET"])
 @limiter.exempt
 def live():
     return jsonify({"status": "ok"}), 200
 
 
-@health.route('/ready', methods=['GET'])
+@health.route("/ready", methods=["GET"])
 @limiter.exempt
 def ready():
     mysql = _mysql_health()
@@ -39,17 +39,19 @@ def ready():
     redis_healthy = redis["status"] in ("ok", "disabled")
     healthy = mysql["status"] == "ok" and redis_healthy
 
-    return jsonify({"status": "ok" if healthy else "degraded"}), (200 if healthy else 503)
+    return jsonify({"status": "ok" if healthy else "degraded"}), (
+        200 if healthy else 503
+    )
 
 
-@health.route('/mysql', methods=['GET'])
+@health.route("/mysql", methods=["GET"])
 @limiter.exempt
 def health_mysql():
     result = _mysql_health()
     return jsonify(result), (200 if result["status"] == "ok" else 503)
 
 
-@health.route('/redis', methods=['GET'])
+@health.route("/redis", methods=["GET"])
 @limiter.exempt
 def health_redis():
     result = redis_health()
@@ -57,18 +59,15 @@ def health_redis():
     return jsonify(result), (200 if ok else 503)
 
 
-@health.route('', methods=['GET'])
-@health.route('/', methods=['GET'])
+@health.route("", methods=["GET"])
+@health.route("/", methods=["GET"])
 @limiter.exempt
 def health_status():
     mysql = _mysql_health()
     redis = redis_health()
     checks = {"mysql": mysql, "redis": redis}
 
-    healthy = (
-        mysql["status"] == "ok"
-        and redis["status"] in ("ok", "disabled")
-    )
+    healthy = mysql["status"] == "ok" and redis["status"] in ("ok", "disabled")
 
     payload = {
         "status": "ok" if healthy else "degraded",
