@@ -31,7 +31,6 @@ class Outfit:
     scene: list[CanvasPlacement]
     seasons: list[Season]
     tags: list[OutfitTags]
-    description: Optional[str] = None
         
     def to_dict(self) -> dict:
         data = asdict(self)
@@ -55,6 +54,5 @@ class Outfit:
             user_id=core.get("user_id"),
             scene=scene,
             seasons=seasons,
-            tags=tags,
-            description=core.get("description")
+            tags=tags
         )

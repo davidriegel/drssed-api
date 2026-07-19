@@ -26,7 +26,6 @@ from app.utils.exceptions import (
     OutfitNameTooShortError,
     OutfitNotFoundError,
     OutfitOffsetInvalidError,
-    OutfitDescriptionTooLongError,
     OutfitPermissionError,
     OutfitPublicMissingError,
     OutfitSceneInvalidError,
@@ -174,8 +173,7 @@ class OutfitManager:
         seasons: Optional[list[str]],
         tags: Optional[list[str]],
         is_public: bool,
-        is_favorite: bool,
-        description: Optional[str] = None,
+        is_favorite: bool
     ) -> Outfit:
         if not isinstance(name, str) or not name.strip():
             raise OutfitNameMissingError("The provided name is missing or invalid.")
@@ -213,11 +211,6 @@ class OutfitManager:
 
         if not isinstance(is_favorite, bool):
             raise OutfitFavoriteMissingError("The is_favorite is missing.")
-
-        if isinstance(description, str) and len(description) > 255:
-            raise OutfitDescriptionTooLongError(
-                "The provided description is too long, it has to be at most 255 characters long."
-            )
 
         if not isinstance(scene, list):
             raise OutfitSceneMissingError("scene is missing or invalid.")
@@ -278,8 +271,7 @@ class OutfitManager:
             user_id=user_id,
             scene=clothing_canvas,
             seasons=seasons_typed,
-            tags=tags_typed,
-            description=description,
+            tags=tags_typed
         )
 
         try:
@@ -290,8 +282,7 @@ class OutfitManager:
                     is_public=is_public,
                     is_favorite=is_favorite,
                     name=name,
-                    user_id=user_id,
-                    description=description,
+                    user_id=user_id
                 )
 
                 if outfit.seasons:
@@ -347,8 +338,7 @@ class OutfitManager:
                 user_id=user_id,
                 scene=clothing_canvas,
                 seasons=seasons,
-                tags=tags,
-                description=row.description,
+                tags=tags
             )
         except OutfitNotFoundError:
             raise

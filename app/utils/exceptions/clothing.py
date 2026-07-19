@@ -28,10 +28,6 @@ class ClothingNameTooLongError(ClothingValidationError):
     def __init__(self, message="Clothing name has to be at most 50 characters long"):
         super().__init__(message)
 
-class ClothingDescriptionTooLongError(ClothingValidationError):
-    def __init__(self, message="Clothing description has to be at most 255 characters long"):
-        super().__init__(message)
-
 class ClothingImageInvalidError(ClothingConflictError):
     def __init__(self, message="Clothing image is invalid"):
         super().__init__(message)

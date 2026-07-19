@@ -17,7 +17,6 @@ from app.services.image import image_manager
 from app.utils.exceptions import (
     ClothingSubCategoryMissingError,
     ClothingColorMissingError,
-    ClothingDescriptionTooLongError,
     ClothingIDMissingError,
     ClothingImageMissingError,
     ClothingNameTooLongError,
@@ -83,8 +82,7 @@ class ClothingManager:
         color: str,
         warmth_level: int,
         seasons: list[Season],
-        tags: list[ClothingTags],
-        description: Optional[str] = None,
+        tags: list[ClothingTags]
     ) -> Clothing:
         color_regex = r"^#([A-Fa-f0-9]{6})$"
         if isinstance(color, str) and not re_match(color_regex, color):
@@ -97,9 +95,6 @@ class ClothingManager:
             raise ValidationError("The provided image file does not exist.")
 
         if len(name) < 3 or len(name) > 50:
-            raise ValidationError
-
-        if isinstance(description, str) and len(description) > 255:
             raise ValidationError
 
         clothing_id = str(uuid.uuid4())
@@ -116,8 +111,7 @@ class ClothingManager:
             user_id,
             image_id,
             seasons,
-            tags,
-            description,
+            tags
         )
 
         try:
@@ -132,8 +126,7 @@ class ClothingManager:
                     image_id=clothing.image_id,
                     user_id=clothing.user_id,
                     color=clothing.color,
-                    warmth_level=clothing.warmth_level,
-                    description=clothing.description,
+                    warmth_level=clothing.warmth_level
                 )
                 clothing_queries.add_seasons(session, clothing.clothing_id, [s.name for s in clothing.seasons])
                 clothing_queries.add_tags(session, clothing.clothing_id, [t.name for t in clothing.tags])
@@ -224,7 +217,6 @@ class ClothingManager:
         clothing_id: str,
         name: Optional[str] = None,
         sub_category: Optional[str] = None,
-        description: Optional[str] = None,
         color: Optional[str] = None,
         warmth_level: Optional[int] = None,
         seasons: Optional[list[str]] = None,
@@ -285,11 +277,6 @@ class ClothingManager:
                             + ", ".join(ClothingSubCategory.__members__.keys())
                         )
                     fields["sub_category"] = sub_category.upper()
-
-                if description is not None and description != current.description:
-                    if len(description) > 255:
-                        raise ClothingDescriptionTooLongError("The provided description is too long.")
-                    fields["description"] = description
 
                 if fields:
                     clothing_queries.update_fields(session, clothing_id, fields)

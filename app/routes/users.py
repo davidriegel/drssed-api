@@ -127,7 +127,6 @@ def create_outfit():
     outfit = outfit_manager.create_outfit(
         user_id=g.user_id,
         name=data.get("name"),
-        description=data.get("description"),
         scene=data.get("scene"),
         seasons=data.get("seasons"),
         tags=data.get("tags"),
@@ -187,7 +186,6 @@ def create_clothing_piece():
         return jsonify({"error": "No data provided"}), 400
     
     name = data.get("name", None)
-    description = data.get("description", None)
     sub_category = data.get("sub_category", None)
     color = data.get("color", None)
     warmth_level = data.get("warmth_level", None)
@@ -215,7 +213,7 @@ def create_clothing_piece():
         
     typed_tags = [ClothingTags[tag.upper()] for tag in tags]
 
-    clothing = clothing_manager.create_clothing(g.user_id, name, typed_sub_category, image_id, color, warmth_level, typed_seasons, typed_tags, description)
+    clothing = clothing_manager.create_clothing(g.user_id, name, typed_sub_category, image_id, color, warmth_level, typed_seasons, typed_tags)
 
     return jsonify({"clothing": clothing.to_dict()}), 201
 
