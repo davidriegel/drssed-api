@@ -20,12 +20,12 @@ jobs:
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
-
+          
       - name: Install system libraries
         run: |
           sudo apt-get update
           sudo apt-get install -y libjpeg-dev zlib1g-dev
-
+          
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
 
