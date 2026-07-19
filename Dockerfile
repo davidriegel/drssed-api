@@ -22,9 +22,11 @@ RUN mkdir -p logs \
             app/static/temp \
             app/static/outfit_collages
 
+RUN chmod +x docker-entrypoint.sh
+
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
     CMD curl --fail --silent --show-error http://127.0.0.1:8000/health/live || exit 1
 
-CMD ["gunicorn", "-c", "gunicorn.conf.py", "main:api"]
+ENTRYPOINT ["./docker-entrypoint.sh"]
