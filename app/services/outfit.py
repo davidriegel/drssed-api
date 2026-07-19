@@ -9,7 +9,7 @@ from typing import Optional
 from app.core.database import get_session
 from app.core.logging import get_logger
 from app.models.clothing import Clothing, ClothingCategory, ClothingTags
-from app.models.outfit import CanvasPlacement, Outfit, OutfitTags
+from app.models.outfit import CanvasPlacement, Outfit, OutfitTags, OutfitSummary
 from app.models.season import Season
 from app.persistence.queries import clothing as clothing_queries
 from app.persistence.queries import outfit as outfit_queries
@@ -396,7 +396,7 @@ class OutfitManager:
         limit: int = 50,
         offset: int = 0,
         include_private: bool = False,
-    ) -> tuple[list[Outfit], int]:
+    ) -> tuple[list[OutfitSummary], int]:
         if not isinstance(user_id, str) or not user_id.strip():
             raise OutfitIDMissingError("The provided user ID is missing or invalid.")
 
@@ -416,17 +416,16 @@ class OutfitManager:
                 offset=offset,
             )
 
-            outfit_list: list[Outfit] = []
+            outfit_list: list[OutfitSummary] = []
             for row in rows:
                 season_rows = outfit_queries.get_seasons_by_outfit_id(row.outfit_id)
                 tag_rows = outfit_queries.get_tags_by_outfit_id(row.outfit_id)
 
                 outfit_list.append(
-                    Outfit.from_dict(
+                    OutfitSummary.from_dict(
                         row.model_dump(),
-                        None,
-                        [Season[s.season] for s in season_rows],
-                        [OutfitTags[t.tag] for t in tag_rows],
+                        [Season(s.season) for s in season_rows],
+                        [OutfitTags(t.tag) for t in tag_rows],
                     )
                 )
         except Exception as e:
