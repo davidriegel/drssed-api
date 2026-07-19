@@ -71,6 +71,7 @@ class OutfitSummary:
             tags=tags,
         )
 
+
 @dataclass
 class Outfit:
     outfit_id: str
