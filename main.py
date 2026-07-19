@@ -125,7 +125,7 @@ def internal_error_handler(error):
 
 
 @api.errorhandler(404)
-def not_found_error_handler(error):
+def api_not_found_error_handler(error):
     logger.info("404 - Route not found", extra=helper.get_request_context())
 
     return jsonify({"error": "Resource not found"}), 404

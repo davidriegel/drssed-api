@@ -1,5 +1,6 @@
 __all__ = ["image_manager"]
 
+import math
 import os
 import traceback
 import uuid
@@ -14,7 +15,6 @@ from tqdm import tqdm
 
 tqdm.__init__ = partialmethod(tqdm.__init__, disable=True)
 
-import math
 from io import BytesIO
 from typing import Optional
 from urllib.parse import urljoin
