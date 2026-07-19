@@ -63,9 +63,7 @@ services:
     logging: *default-logging
 
   api:
-    build:
-      context: .
-    image: drssed-api:latest
+    image: ghcr.io/davidriegel/drssed-api:1.1.0
     container_name: api
     env_file: .env
     volumes:
