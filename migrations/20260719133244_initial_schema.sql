@@ -1,3 +1,11 @@
+-- SQLSpec Migration
+-- Version: 20260719133244
+-- Description: initial schema
+-- Created: 2026-07-19T13:32:44.218356+00:00
+-- Author: David Riegel <40246197+davidriegel@users.noreply.github.com>
+
+-- name: migrate-20260719133244-up
+
 -- -----------------------------------------------------------------------------
 -- Users & Auth
 -- -----------------------------------------------------------------------------
@@ -32,7 +40,7 @@ CREATE TABLE
     PRIMARY KEY (token),
     KEY idx_email_verifications_user (user_id),
     KEY idx_email_verifications_expires (expires_at),
-    CONSTRAINT fk_email_verifications_user 
+    CONSTRAINT fk_email_verifications_user
         FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
@@ -43,7 +51,7 @@ CREATE TABLE
     refresh_token_expiry TIMESTAMP NULL,
     PRIMARY KEY (refresh_token),
     KEY idx_refresh_tokens_user (user_id),
-    CONSTRAINT fk_refresh_tokens_user 
+    CONSTRAINT fk_refresh_tokens_user
         FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
@@ -79,7 +87,7 @@ CREATE TABLE
     clothing_id VARCHAR(36) NOT NULL,
     tag VARCHAR(50) NOT NULL,
     PRIMARY KEY (clothing_id, tag),
-    CONSTRAINT fk_clothing_tags_clothing 
+    CONSTRAINT fk_clothing_tags_clothing
         FOREIGN KEY (clothing_id) REFERENCES clothing(clothing_id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
@@ -88,7 +96,7 @@ CREATE TABLE
     clothing_id VARCHAR(36) NOT NULL,
     season ENUM('spring','summer','autumn','winter') NOT NULL,
     PRIMARY KEY (clothing_id, season),
-    CONSTRAINT fk_clothing_seasons_clothing 
+    CONSTRAINT fk_clothing_seasons_clothing
         FOREIGN KEY (clothing_id) REFERENCES clothing(clothing_id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
@@ -108,7 +116,7 @@ CREATE TABLE
     deleted_at TIMESTAMP NULL,
     PRIMARY KEY (outfit_id),
     KEY idx_outfits_user_deleted (user_id, deleted_at),
-    CONSTRAINT fk_outfits_user 
+    CONSTRAINT fk_outfits_user
         FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
@@ -123,9 +131,9 @@ CREATE TABLE
     rotation FLOAT NOT NULL DEFAULT 0.0,
     PRIMARY KEY (outfit_id, clothing_id),
     KEY idx_outfit_clothing_clothing (clothing_id),
-    CONSTRAINT fk_outfit_clothing_outfit 
+    CONSTRAINT fk_outfit_clothing_outfit
         FOREIGN KEY (outfit_id) REFERENCES outfits(outfit_id) ON DELETE CASCADE,
-    CONSTRAINT fk_outfit_clothing_clothing 
+    CONSTRAINT fk_outfit_clothing_clothing
         FOREIGN KEY (clothing_id) REFERENCES clothing(clothing_id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
@@ -134,7 +142,7 @@ CREATE TABLE
     outfit_id VARCHAR(36) NOT NULL,
     tag VARCHAR(50) NOT NULL,
     PRIMARY KEY (outfit_id, tag),
-    CONSTRAINT fk_outfit_tags_outfit 
+    CONSTRAINT fk_outfit_tags_outfit
         FOREIGN KEY (outfit_id) REFERENCES outfits(outfit_id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
@@ -143,6 +151,20 @@ CREATE TABLE
     outfit_id VARCHAR(36) NOT NULL,
     season ENUM('spring','summer','autumn','winter') NOT NULL,
     PRIMARY KEY (outfit_id, season),
-    CONSTRAINT fk_outfit_seasons_outfit 
+    CONSTRAINT fk_outfit_seasons_outfit
         FOREIGN KEY (outfit_id) REFERENCES outfits(outfit_id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+
+-- name: migrate-20260719133244-down
+
+DROP TABLE IF EXISTS outfit_seasons;
+DROP TABLE IF EXISTS outfit_tags;
+DROP TABLE IF EXISTS outfit_clothing;
+DROP TABLE IF EXISTS outfits;
+DROP TABLE IF EXISTS clothing_seasons;
+DROP TABLE IF EXISTS clothing_tags;
+DROP TABLE IF EXISTS clothing;
+DROP TABLE IF EXISTS refresh_tokens;
+DROP TABLE IF EXISTS email_verifications;
+DROP TABLE IF EXISTS users;

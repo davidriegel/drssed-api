@@ -34,7 +34,11 @@ db = spec.add_config(
             "database": _get_required_env("DATABASE_NAME"),
             "charset": "utf8mb4",
             "autocommit": False,
-        }
+        },
+        migration_config={
+            "script_location": "migrations",
+            "version_table": "_schema_versions",
+        },
     )
 )
 
