@@ -1,4 +1,5 @@
 from flask import Blueprint, g, jsonify, render_template, request
+from flask.typing import ResponseReturnValue
 
 from app.core.limiter import limiter
 from app.services.authentication import authentication_manager
@@ -83,7 +84,7 @@ def delete_refresh_token():
 
 @auth.route("/login", methods=["POST"])
 @limiter.limit("5 per minute")
-def login():
+def login() -> ResponseReturnValue:
     data: dict = request.get_json()
 
     email = data.get("email")

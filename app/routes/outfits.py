@@ -1,4 +1,5 @@
 from flask import Blueprint, g, jsonify, request
+from flask.typing import ResponseReturnValue
 
 from app.core.limiter import limiter
 from app.models.outfit import OutfitTags
@@ -58,7 +59,7 @@ def patch_outfit(outfit_id: str):
 @outfits.route("/generate", methods=["POST"])
 @limiter.limit("10 per minute")
 @authorize_request
-def generate_outfits():
+def generate_outfits() -> ResponseReturnValue:
     data: dict = request.get_json(silent=True) or {}
 
     seasons = data.get("seasons")

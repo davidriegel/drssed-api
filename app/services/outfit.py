@@ -446,7 +446,7 @@ class OutfitManager:
         is_public: Optional[bool] = None,
         seasons: Optional[list[str]] = None,
         tags: Optional[list[str]] = None,
-        scene: Optional[dict] = None,
+        scene: Optional[list[dict]] = None,
     ) -> Outfit:
         try:
             with get_session() as session:

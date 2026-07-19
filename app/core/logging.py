@@ -167,6 +167,8 @@ class Logger:
 
         if name:
             return logging.getLogger(f"drssed.{name}")
+
+        assert cls._logger is not None
         return cls._logger
 
 

@@ -137,16 +137,16 @@ class Clothing:
     @classmethod
     def from_dict(cls, core: dict, seasons: list[Season], tags: list[ClothingTags]):
         return Clothing(
-            clothing_id=core.get("clothing_id"),
-            is_public=bool(core.get("is_public")),
-            name=core.get("name"),
-            color=core.get("color"),
-            category=ClothingCategory[core.get("category")],
-            sub_category=ClothingSubCategory[core.get("sub_category")],
-            warmth_level=core.get("warmth_level"),
-            created_at=core.get("created_at"),
-            user_id=core.get("user_id"),
-            image_id=core.get("image_id"),
+            clothing_id=core["clothing_id"],
+            is_public=bool(core["is_public"]),
+            name=core["name"],
+            color=core["color"],
+            category=ClothingCategory(core["category"]),
+            sub_category=ClothingSubCategory(core["sub_category"]),
+            warmth_level=core["warmth_level"],
+            created_at=core["created_at"],
+            user_id=core["user_id"],
+            image_id=core["image_id"],
             seasons=seasons,
             tags=tags,
         )

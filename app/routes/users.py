@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from flask import Blueprint, g, jsonify, request
+from flask.typing import ResponseReturnValue
 
 from app.models.clothing import ClothingCategory, ClothingSubCategory, ClothingTags
 from app.models.season import Season
@@ -20,7 +21,7 @@ users = Blueprint("users", __name__)
 @users.route("/me/upgrade", methods=["POST"])
 @limiter.limit("5 per minute")
 @authorize_request
-def upgrade_guest():
+def upgrade_guest() -> ResponseReturnValue:
     if not g.is_guest:
         raise ConflictError
 
@@ -195,7 +196,7 @@ def get_clothing_list(user_id: str):
 @users.route("/me/clothing", methods=["GET"])
 @limiter.limit("5 per minute")
 @authorize_request
-def get_clothing_list_private():
+def get_clothing_list_private() -> ResponseReturnValue:
     limit = request.args.get("limit", 50, type=int)
     offset = request.args.get("offset", 0, type=int)
     category = request.args.get("category", None, type=str)
@@ -206,7 +207,7 @@ def get_clothing_list_private():
         if category not in ClothingCategory.__members__:
             raise ValidationError
 
-        typed_category = ClothingCategory[category]
+        typed_category = ClothingCategory(category)
 
     clothing_list = clothing_manager.get_list_of_clothing_by_user_id(
         g.user_id,
@@ -284,7 +285,7 @@ def create_clothing_piece():
 @users.route("/me/password", methods=["PATCH"])
 @authorize_request
 @limiter.limit("5 per minute", key_func=lambda: str(g.user_id))
-def change_password():
+def change_password() -> ResponseReturnValue:
     if g.is_guest:
         raise ConflictError
 
@@ -306,7 +307,7 @@ def change_password():
 @users.route("/me/email", methods=["PATCH"])
 @authorize_request
 @limiter.limit("3 per hour", key_func=lambda: str(g.user_id))
-def change_email():
+def change_email() -> ResponseReturnValue:
     if g.is_guest:
         raise ConflictError
 
