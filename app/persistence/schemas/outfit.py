@@ -1,10 +1,12 @@
 from datetime import datetime
 from decimal import Decimal
+
 from pydantic import BaseModel, ConfigDict
 
 
 class OutfitRow(BaseModel):
     """All columns from the outfits table needed by the domain model."""
+
     model_config = ConfigDict(frozen=True)
 
     outfit_id: str

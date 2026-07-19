@@ -1,14 +1,16 @@
-from enum import Enum
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from typing import Optional
+from enum import Enum
+
 from app.models.season import Season
-from dataclasses import dataclass, asdict
+
 
 class OutfitTags(str, Enum):
     CASUAL = "CASUAL"
     FORMAL = "FORMAL"
     SPORTS = "SPORTS"
     VINTAGE = "VINTAGE"
+
 
 @dataclass
 class CanvasPlacement:
@@ -18,6 +20,7 @@ class CanvasPlacement:
     z: int
     scale: float
     rotation: float
+
 
 @dataclass
 class Outfit:
@@ -31,19 +34,33 @@ class Outfit:
     scene: list[CanvasPlacement]
     seasons: list[Season]
     tags: list[OutfitTags]
-        
+
     def to_dict(self) -> dict:
         data = asdict(self)
-        
+
         if isinstance(data["created_at"], datetime):
-            data["created_at"] = data["created_at"].replace(tzinfo=timezone.utc).isoformat(timespec="seconds")
-            
+            data["created_at"] = (
+                data["created_at"]
+                .replace(tzinfo=timezone.utc)
+                .isoformat(timespec="seconds")
+            )
+
         if isinstance(data["updated_at"], datetime):
-            data["updated_at"] = data["updated_at"].replace(tzinfo=timezone.utc).isoformat(timespec="seconds")
+            data["updated_at"] = (
+                data["updated_at"]
+                .replace(tzinfo=timezone.utc)
+                .isoformat(timespec="seconds")
+            )
         return data
-    
+
     @classmethod
-    def from_dict(cls, core: dict, scene: list[CanvasPlacement], seasons: list[Season], tags: list[OutfitTags]):
+    def from_dict(
+        cls,
+        core: dict,
+        scene: list[CanvasPlacement],
+        seasons: list[Season],
+        tags: list[OutfitTags],
+    ):
         return Outfit(
             outfit_id=core.get("outfit_id"),
             is_public=bool(core.get("is_public")),
@@ -54,5 +71,5 @@ class Outfit:
             user_id=core.get("user_id"),
             scene=scene,
             seasons=seasons,
-            tags=tags
+            tags=tags,
         )

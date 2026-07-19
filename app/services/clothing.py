@@ -9,19 +9,24 @@ from typing import Optional, cast
 
 from app.core.database import get_session
 from app.core.logging import get_logger
-from app.models.clothing import Clothing, ClothingCategory, ClothingSubCategory, ClothingTags
+from app.models.clothing import (
+    Clothing,
+    ClothingCategory,
+    ClothingSubCategory,
+    ClothingTags,
+)
 from app.models.season import Season
 from app.persistence.queries import clothing as clothing_queries
 from app.persistence.queries import outfit as outfit_queries
 from app.services.image import image_manager
 from app.utils.exceptions import (
-    ClothingSubCategoryMissingError,
     ClothingColorMissingError,
     ClothingIDMissingError,
     ClothingImageMissingError,
     ClothingNameTooLongError,
     ClothingNameTooShortError,
     ClothingNotFoundError,
+    ClothingSubCategoryMissingError,
     ClothingTagsInvalidError,
     ClothingValidationError,
     ClothingWarmthLevelInvalidError,
@@ -46,11 +51,14 @@ def _is_valid_warmth_level(warmth_level) -> bool:
 
 
 class ClothingManager:
-
-    def sync_clothes(self, user_id: str, updated_since: datetime) -> tuple[list[Clothing], list[str]]:
+    def sync_clothes(
+        self, user_id: str, updated_since: datetime
+    ) -> tuple[list[Clothing], list[str]]:
         try:
             updated_rows = clothing_queries.get_updated_since(user_id, updated_since)
-            deleted_rows = clothing_queries.get_deleted_ids_since(user_id, updated_since)
+            deleted_rows = clothing_queries.get_deleted_ids_since(
+                user_id, updated_since
+            )
 
             updated_clothes: list[Clothing] = []
             for row in updated_rows:
@@ -67,7 +75,9 @@ class ClothingManager:
 
             deleted_ids = [row.clothing_id for row in deleted_rows]
         except Exception as e:
-            logger.error(f"An unexpected error occurred while retrieving updated and deleted clothes for user {user_id}: {e}")
+            logger.error(
+                f"An unexpected error occurred while retrieving updated and deleted clothes for user {user_id}: {e}"
+            )
             logger.error(traceback.format_exc())
             raise
 
@@ -82,7 +92,7 @@ class ClothingManager:
         color: str,
         warmth_level: int,
         seasons: list[Season],
-        tags: list[ClothingTags]
+        tags: list[ClothingTags],
     ) -> Clothing:
         color_regex = r"^#([A-Fa-f0-9]{6})$"
         if isinstance(color, str) and not re_match(color_regex, color):
@@ -91,7 +101,9 @@ class ClothingManager:
         if not _is_valid_warmth_level(warmth_level):
             raise ClothingWarmthLevelInvalidError
 
-        if not os.path.exists(os.path.join("app", "static", "temp", image_id + ".webp")):
+        if not os.path.exists(
+            os.path.join("app", "static", "temp", image_id + ".webp")
+        ):
             raise ValidationError("The provided image file does not exist.")
 
         if len(name) < 3 or len(name) > 50:
@@ -111,7 +123,7 @@ class ClothingManager:
             user_id,
             image_id,
             seasons,
-            tags
+            tags,
         )
 
         try:
@@ -126,14 +138,20 @@ class ClothingManager:
                     image_id=clothing.image_id,
                     user_id=clothing.user_id,
                     color=clothing.color,
-                    warmth_level=clothing.warmth_level
+                    warmth_level=clothing.warmth_level,
                 )
-                clothing_queries.add_seasons(session, clothing.clothing_id, [s.name for s in clothing.seasons])
-                clothing_queries.add_tags(session, clothing.clothing_id, [t.name for t in clothing.tags])
+                clothing_queries.add_seasons(
+                    session, clothing.clothing_id, [s.name for s in clothing.seasons]
+                )
+                clothing_queries.add_tags(
+                    session, clothing.clothing_id, [t.name for t in clothing.tags]
+                )
         except Exception as e:
             if "Duplicate entry" in str(e) or "IntegrityError" in type(e).__name__:
                 raise ConflictError
-            logger.error(f"An unexpected error occurred while adding a new clothing to the database: {e}")
+            logger.error(
+                f"An unexpected error occurred while adding a new clothing to the database: {e}"
+            )
             logger.error(traceback.format_exc())
             raise
 
@@ -148,7 +166,9 @@ class ClothingManager:
         try:
             row = clothing_queries.get_by_id(user_id, clothing_id)
             if row is None:
-                raise ClothingNotFoundError("The provided ID does not match any clothing in the database.")
+                raise ClothingNotFoundError(
+                    "The provided ID does not match any clothing in the database."
+                )
 
             seasons = clothing_queries.get_seasons_by_clothing_id(clothing_id)
             tags = clothing_queries.get_tags_by_clothing_id(clothing_id)
@@ -161,7 +181,9 @@ class ClothingManager:
         except ClothingNotFoundError:
             raise
         except Exception as e:
-            logger.error(f"An unexpected error occurred while retrieving clothing by ID: {e}")
+            logger.error(
+                f"An unexpected error occurred while retrieving clothing by ID: {e}"
+            )
             logger.error(traceback.format_exc())
             raise
 
@@ -196,11 +218,15 @@ class ClothingManager:
 
         seasons_by_clothing: dict[str, list[Season]] = {}
         for season_row in clothing_queries.get_seasons_by_clothing_ids(clothing_ids):
-            seasons_by_clothing.setdefault(season_row.clothing_id, []).append(Season[season_row.season])
+            seasons_by_clothing.setdefault(season_row.clothing_id, []).append(
+                Season[season_row.season]
+            )
 
         tags_by_clothing: dict[str, list[ClothingTags]] = {}
         for tag_row in clothing_queries.get_tags_by_clothing_ids(clothing_ids):
-            tags_by_clothing.setdefault(tag_row.clothing_id, []).append(ClothingTags[tag_row.tag])
+            tags_by_clothing.setdefault(tag_row.clothing_id, []).append(
+                ClothingTags[tag_row.tag]
+            )
 
         return [
             Clothing.from_dict(
@@ -225,7 +251,9 @@ class ClothingManager:
     ) -> Clothing:
         try:
             with get_session() as session:
-                current = clothing_queries.get_basic_for_update(session, user_id, clothing_id)
+                current = clothing_queries.get_basic_for_update(
+                    session, user_id, clothing_id
+                )
 
                 if current is None:
                     raise ClothingNotFoundError(
@@ -263,8 +291,12 @@ class ClothingManager:
                         fields["warmth_level"] = warmth_level
 
                 if isinstance(image_id, str):
-                    if not os.path.exists(os.path.join("app", "static", "temp", image_id + ".webp")):
-                        raise ClothingImageMissingError("The provided image file does not exist.")
+                    if not os.path.exists(
+                        os.path.join("app", "static", "temp", image_id + ".webp")
+                    ):
+                        raise ClothingImageMissingError(
+                            "The provided image file does not exist."
+                        )
 
                     image_manager.delete_clothing_image(image_id=image_id)
                     fields["image_id"] = image_id
@@ -282,22 +314,38 @@ class ClothingManager:
                     clothing_queries.update_fields(session, clothing_id, fields)
 
                 if seasons is not None:
-                    existing_seasons = [s.season for s in clothing_queries.get_seasons_in_session(session, clothing_id)]
+                    existing_seasons = [
+                        s.season
+                        for s in clothing_queries.get_seasons_in_session(
+                            session, clothing_id
+                        )
+                    ]
                     if seasons != existing_seasons:
                         new_seasons = [s for s in seasons if s not in existing_seasons]
                         old_seasons = [s for s in existing_seasons if s not in seasons]
 
-                        clothing_queries.remove_seasons(session, clothing_id, old_seasons)
+                        clothing_queries.remove_seasons(
+                            session, clothing_id, old_seasons
+                        )
 
                         normalized_new_seasons = []
                         for season in new_seasons:
                             if season.strip().upper() not in Season.__members__:
-                                raise SeasonsInvalidError(f"The provided season ({season}) is not valid.")
+                                raise SeasonsInvalidError(
+                                    f"The provided season ({season}) is not valid."
+                                )
                             normalized_new_seasons.append(season.strip().upper())
-                        clothing_queries.add_seasons(session, clothing_id, normalized_new_seasons)
+                        clothing_queries.add_seasons(
+                            session, clothing_id, normalized_new_seasons
+                        )
 
                 if tags is not None:
-                    existing_tags = [t.tag for t in clothing_queries.get_tags_in_session(session, clothing_id)]
+                    existing_tags = [
+                        t.tag
+                        for t in clothing_queries.get_tags_in_session(
+                            session, clothing_id
+                        )
+                    ]
                     if tags != existing_tags:
                         new_tags = [t for t in tags if t not in existing_tags]
                         old_tags = [t for t in existing_tags if t not in tags]
@@ -307,13 +355,19 @@ class ClothingManager:
                         normalized_new_tags = []
                         for tag in new_tags:
                             if tag.strip().upper() not in ClothingTags.__members__:
-                                raise ClothingTagsInvalidError(f"The provided tag ({tag}) is not valid.")
+                                raise ClothingTagsInvalidError(
+                                    f"The provided tag ({tag}) is not valid."
+                                )
                             normalized_new_tags.append(tag.strip().upper())
-                        clothing_queries.add_tags(session, clothing_id, normalized_new_tags)
+                        clothing_queries.add_tags(
+                            session, clothing_id, normalized_new_tags
+                        )
         except (ClothingValidationError, ClothingNotFoundError):
             raise
         except Exception as e:
-            logger.error(f"An unexpected error occurred while updating clothing with ID {clothing_id}: {e}")
+            logger.error(
+                f"An unexpected error occurred while updating clothing with ID {clothing_id}: {e}"
+            )
             logger.error(traceback.format_exc())
             raise
 
@@ -332,7 +386,9 @@ class ClothingManager:
                 if image_row is None:
                     raise ClothingNotFoundError
 
-                affected_outfits = clothing_queries.get_outfits_affected_by_clothing(session, clothing_id)
+                affected_outfits = clothing_queries.get_outfits_affected_by_clothing(
+                    session, clothing_id
+                )
 
                 clothing_queries.soft_delete(session, user_id, clothing_id)
                 outfit_queries.remove_clothing_from_outfits(session, clothing_id)
@@ -345,7 +401,9 @@ class ClothingManager:
         except ClothingNotFoundError:
             raise
         except Exception as e:
-            logger.error(f"Unexpected error while soft deleting clothing {clothing_id}: {e}")
+            logger.error(
+                f"Unexpected error while soft deleting clothing {clothing_id}: {e}"
+            )
             raise
 
 

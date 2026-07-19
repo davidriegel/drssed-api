@@ -1,113 +1,143 @@
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
 
 from flask import Flask, jsonify
+
 from app.core.limiter import limiter
-from app.core.scheduler import init_scheduler, register_job
 from app.core.logging import get_logger, setup_logging
+from app.core.scheduler import init_scheduler, register_job
+from app.routes.auth import auth
+from app.routes.clothing import clothing
+from app.routes.health import health
+from app.routes.images import images
+from app.routes.main import api as main
+from app.routes.outfits import outfits
+from app.routes.static import static
+from app.routes.taxonomy import taxonomy
+from app.routes.users import users
 from app.services.cleanup import create_cleanup_jobs
-from app.utils.middleware.request_logger import init_request_logging
-from app.utils.middleware.extract_language import init_language_extraction
 from app.utils.exceptions import (
-    ValidationError,
-    NotFoundError,
     ConflictError,
+    NotFoundError,
     PermissionError,
     UnauthorizedError,
-    UnprocessableEntityError
+    UnprocessableEntityError,
+    ValidationError,
 )
 from app.utils.helpers import helper
-from app.routes.main import api as main
-from app.routes.health import health
-from app.routes.auth import auth
-from app.routes.users import users
-from app.routes.static import static
-from app.routes.clothing import clothing
-from app.routes.images import images
-from app.routes.outfits import outfits
-from app.routes.taxonomy import taxonomy
+from app.utils.middleware.extract_language import init_language_extraction
+from app.utils.middleware.request_logger import init_request_logging
 
-api = Flask("Drssed API", static_folder="app/static", static_url_path="/static", template_folder="app/templates")
+api = Flask(
+    "Drssed API",
+    static_folder="app/static",
+    static_url_path="/static",
+    template_folder="app/templates",
+)
 
 setup_logging(api)
 logger = get_logger("main")
 
 all_jobs = [*create_cleanup_jobs()]
 
+
 def prepare_api():
     limiter.init_app(api)
-    
+
     init_request_logging(api)
     init_scheduler(api)
     for job in all_jobs:
         register_job(job)
-        
+
     init_language_extraction(api)
 
     prepare_static_directories()
     register_blueprints()
     logger.info("API prepared successfully.")
 
+
 @api.errorhandler(ValidationError)
 def validation_error_handler(error):
-    logger.warning(f"Validation error: {str(error)}", extra=helper.get_request_context())
-    
+    logger.warning(
+        f"Validation error: {str(error)}", extra=helper.get_request_context()
+    )
+
     return jsonify({"error": str(error)}), 400
+
 
 @api.errorhandler(NotFoundError)
 def not_found_error_handler(error):
-    logger.warning(f"Resource not found: {str(error)}", extra=helper.get_request_context())
-    
+    logger.warning(
+        f"Resource not found: {str(error)}", extra=helper.get_request_context()
+    )
+
     return jsonify({"error": str(error)}), 404
+
 
 @api.errorhandler(ConflictError)
 def conflict_error_handler(error):
     logger.warning(f"Conflict: {str(error)}", extra=helper.get_request_context())
-    
+
     response = {"error": str(error)}
-    if hasattr(error, 'field') and error.field:
+    if hasattr(error, "field") and error.field:
         response["field"] = error.field
-        
+
     return jsonify(response), 409
+
 
 @api.errorhandler(PermissionError)
 def outfit_permission_error_handler(error):
-    logger.warning(f"Permission denied: {str(error)}", extra=helper.get_request_context())
-    
+    logger.warning(
+        f"Permission denied: {str(error)}", extra=helper.get_request_context()
+    )
+
     return jsonify({"error": str(error)}), 403
+
 
 @api.errorhandler(UnauthorizedError)
 def unauthorized_error_handler(error):
-    logger.warning(f"Unauthorized access: {str(error)}", extra=helper.get_request_context())
-    
+    logger.warning(
+        f"Unauthorized access: {str(error)}", extra=helper.get_request_context()
+    )
+
     return jsonify({"error": str(error)}), 401
+
 
 @api.errorhandler(UnprocessableEntityError)
 def unprocessable_error_handler(error):
-    logger.warning(f"Unprocessable entity: {str(error)}", extra=helper.get_request_context())
-    
+    logger.warning(
+        f"Unprocessable entity: {str(error)}", extra=helper.get_request_context()
+    )
+
     return jsonify({"error": str(error)}), 422
+
 
 @api.errorhandler(Exception)
 def internal_error_handler(error):
-    logger.exception(f"Unhandled exception: {str(error)}", extra=helper.get_request_context())
-    
+    logger.exception(
+        f"Unhandled exception: {str(error)}", extra=helper.get_request_context()
+    )
+
     return jsonify({"error": "An unexpected error occurred"}), 500
+
 
 @api.errorhandler(404)
 def not_found_error_handler(error):
     logger.info("404 - Route not found", extra=helper.get_request_context())
-    
+
     return jsonify({"error": "Resource not found"}), 404
+
 
 @api.errorhandler(405)
 def method_not_allowed(error):
     logger.warning("405 - Method not allowed", extra=helper.get_request_context())
-    
+
     return jsonify({"error": "Method not allowed"}), 405
-    
+
+
 def register_blueprints():
     api.register_blueprint(main, url_prefix="/")
     api.register_blueprint(health, url_prefix="/health")
@@ -121,8 +151,14 @@ def register_blueprints():
 
     logger.info("Blueprint routes registered successfully")
 
+
 def prepare_static_directories():
-    static_dirs = ["app/static/clothing_images", "app/static/profile_pictures", "app/static/temp", "app/static/outfit_collages"]
+    static_dirs = [
+        "app/static/clothing_images",
+        "app/static/profile_pictures",
+        "app/static/temp",
+        "app/static/outfit_collages",
+    ]
     for directory in static_dirs:
         if not os.path.exists(directory):
             try:
@@ -131,7 +167,8 @@ def prepare_static_directories():
             except OSError as e:
                 logger.critical(f"Failed to create directory {directory}: {e}")
 
-if __name__ != '__main__':
+
+if __name__ != "__main__":
     prepare_api()
     logger.info("🚀 Started API successfully")
 else:

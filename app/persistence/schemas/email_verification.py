@@ -7,6 +7,7 @@ class EmailVerificationToken(BaseModel):
     """
     Used for validating email verification tokens.
     """
+
     model_config = ConfigDict(frozen=True)
 
     token: str

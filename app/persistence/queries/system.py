@@ -1,6 +1,7 @@
+from pydantic import BaseModel, ConfigDict
+
 from app.core.database import get_session
 from app.persistence.schemas.cleanup import LockResult
-from pydantic import BaseModel, ConfigDict
 
 
 class _PingResult(BaseModel):

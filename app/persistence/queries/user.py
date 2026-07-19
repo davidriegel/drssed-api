@@ -1,18 +1,19 @@
 from datetime import datetime
-from app.persistence.schemas.cleanup import FileReference
+
 from app.core.database import get_session
+from app.persistence.schemas.cleanup import FileReference
 from app.persistence.schemas.user import (
+    UserCreate,
+    UserEmailVerificationStatus,
+    UserExistsCheck,
+    UserGuestStatus,
     UserProfile,
     UserPublicProfile,
     UserSignIn,
-    UserCreate,
-    UserExistsCheck,
-    UserGuestStatus,
-    UserEmailVerificationStatus,
 )
 
-
 # Reads
+
 
 def get_profile_by_id(user_id: str) -> UserProfile | None:
     """Fetches full profile information for a user by their ID."""
@@ -136,6 +137,7 @@ def username_exists(username: str) -> bool:
 
 # Writes
 
+
 def create(user: UserCreate) -> None:
     """Inserts a new user into the database."""
     with get_session() as session:
@@ -231,7 +233,8 @@ def delete_by_id(user_id: str) -> None:
             "DELETE FROM users WHERE user_id = :user_id",
             {"user_id": user_id},
         )
-        
+
+
 def get_inactive_guest_ids(
     session,
     cutoff: datetime,

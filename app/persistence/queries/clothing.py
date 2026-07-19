@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from app.core.database import get_session
+from app.models.clothing import ClothingSubCategory
 from app.persistence.schemas.cleanup import FileReference
 from app.persistence.schemas.clothing import (
     AffectedOutfitRow,
@@ -12,10 +13,9 @@ from app.persistence.schemas.clothing import (
     ClothingSeasonRow,
     ClothingTagRow,
 )
-from app.models.clothing import ClothingSubCategory
-
 
 # Cleanup helpers
+
 
 def get_image_ids_for_user(session, user_id: str) -> list[FileReference]:
     """Returns all clothing image IDs owned by a user."""
@@ -43,6 +43,7 @@ def get_all_referenced_image_ids(session) -> list[FileReference]:
 
 
 # Reads
+
 
 def get_by_id(user_id: str, clothing_id: str) -> ClothingRow | None:
     """Fetches a single clothing row for a given user."""
@@ -154,7 +155,7 @@ def list_for_user(
     sql = f"""
         SELECT c.clothing_id, c.is_public, c.name, c.category, c.sub_category, c.color, c.warmth_level, c.created_at, c.user_id, c.image_id
         FROM clothing c
-        WHERE {' AND '.join(where_clauses)}
+        WHERE {" AND ".join(where_clauses)}
         ORDER BY c.created_at DESC
         LIMIT :limit OFFSET :offset
     """
@@ -195,6 +196,7 @@ def get_tags_by_clothing_ids(clothing_ids: list[str]) -> list[ClothingIdTagRow]:
 
 # Writes (session-parameter — meant for use inside a transaction)
 
+
 def create(
     session,
     clothing_id: str,
@@ -205,7 +207,7 @@ def create(
     image_id: str,
     user_id: str,
     color: str,
-    warmth_level: int
+    warmth_level: int,
 ) -> None:
     """Inserts a new clothing row."""
     session.execute(
@@ -222,7 +224,7 @@ def create(
             "image_id": image_id,
             "user_id": user_id,
             "color": color,
-            "warmth_level": warmth_level
+            "warmth_level": warmth_level,
         },
     )
 
@@ -255,9 +257,7 @@ def remove_seasons(session, clothing_id: str, seasons: list[str]) -> None:
         key = f"season_{i}"
         placeholders.append(f":{key}")
         params[key] = season
-    sql = (
-        f"DELETE FROM clothing_seasons WHERE clothing_id = :clothing_id AND season IN ({', '.join(placeholders)})"
-    )
+    sql = f"DELETE FROM clothing_seasons WHERE clothing_id = :clothing_id AND season IN ({', '.join(placeholders)})"
     session.execute(sql, params)
 
 
@@ -271,9 +271,7 @@ def remove_tags(session, clothing_id: str, tags: list[str]) -> None:
         key = f"tag_{i}"
         placeholders.append(f":{key}")
         params[key] = tag
-    sql = (
-        f"DELETE FROM clothing_tags WHERE clothing_id = :clothing_id AND tag IN ({', '.join(placeholders)})"
-    )
+    sql = f"DELETE FROM clothing_tags WHERE clothing_id = :clothing_id AND tag IN ({', '.join(placeholders)})"
     session.execute(sql, params)
 
 
@@ -322,18 +320,23 @@ def update_fields(session, clothing_id: str, fields: dict) -> None:
             raise ValueError(f"Unknown clothing field: {key}")
 
         if key == "sub_category":
-            if not isinstance(value, str) and not value.upper() in ClothingSubCategory.__members__:
+            if (
+                not isinstance(value, str)
+                and value.upper() not in ClothingSubCategory.__members__
+            ):
                 raise ValueError(f"Invalid sub category: {value}")
 
             category = ClothingSubCategory.__members__[value.upper()].category
 
-            set_clauses.append(f"category = :category")
+            set_clauses.append("category = :category")
             params["category"] = category
 
         set_clauses.append(f"{key} = :{key}")
         params[key] = value
 
-    sql = f"UPDATE clothing SET {', '.join(set_clauses)} WHERE clothing_id = :clothing_id"
+    sql = (
+        f"UPDATE clothing SET {', '.join(set_clauses)} WHERE clothing_id = :clothing_id"
+    )
     session.execute(sql, params)
 
 
@@ -350,7 +353,9 @@ def get_image_id(session, user_id: str, clothing_id: str) -> ClothingImageIdRow 
     )
 
 
-def get_outfits_affected_by_clothing(session, clothing_id: str) -> list[AffectedOutfitRow]:
+def get_outfits_affected_by_clothing(
+    session, clothing_id: str
+) -> list[AffectedOutfitRow]:
     """Returns outfit IDs containing a given clothing item along with each outfit's total item count."""
     return session.select(
         """

@@ -1,17 +1,20 @@
 __all__ = ["init_scheduler", "register_job"]
 
-from os import getenv
-from datetime import timezone
 from dataclasses import dataclass
+from datetime import timezone
+from os import getenv
 from typing import Callable, Optional
+
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.base import BaseTrigger
+
 from app.core.logging import get_logger
 
 logger = get_logger()
 
 _scheduler: Optional[BackgroundScheduler] = None
 _app = None
+
 
 @dataclass
 class JobSpec:
@@ -25,19 +28,19 @@ def init_scheduler(app) -> None:
     """
     Initialize the background scheduler. Should be called once during app setup,
     BEFORE any register_job() calls from services.
-    
+
     :param app: The Flask app instance, used for app_context wrapping
     """
     global _scheduler, _app
-    
+
     if _scheduler is not None:
         logger.debug("Scheduler already initialized, skipping")
         return
-    
+
     if getenv("DISABLE_SCHEDULER", "false").lower() == "true":
         logger.info("Scheduler disabled via DISABLE_SCHEDULER")
         return
-    
+
     _app = app
     _scheduler = BackgroundScheduler(
         timezone=timezone.utc,
@@ -45,13 +48,14 @@ def init_scheduler(app) -> None:
             "coalesce": True,
             "max_instances": 1,
             "misfire_grace_time": 3600,
-        }
+        },
     )
-    
+
     _scheduler.start()
     logger.info("Scheduler started")
-    
+
     import atexit
+
     atexit.register(_shutdown)
 
 
@@ -59,7 +63,7 @@ def register_job(job: JobSpec) -> None:
     """
     Register a job with the scheduler. The function will automatically be wrapped
     in the Flask app context, so services can use current_app and the sqlspec session helpers.
-    
+
     :param job: The job specification
     """
     if _scheduler is None:
@@ -70,21 +74,21 @@ def register_job(job: JobSpec) -> None:
             f"Cannot register job '{job.job_id}': scheduler not initialized. "
             "Call init_scheduler(app) first."
         )
-    
+
     if _app is None:
         raise RuntimeError("Scheduler is missing app context")
-    
+
     captured_app = _app
     captured_func = job.func
     captured_id = job.job_id
-    
+
     def wrapped():
         try:
             with captured_app.app_context():
                 captured_func()
         except Exception as e:
             logger.exception(f"Job '{captured_id}' crashed: {e}")
-    
+
     _scheduler.add_job(
         func=wrapped,
         trigger=job.trigger,
@@ -92,7 +96,7 @@ def register_job(job: JobSpec) -> None:
         name=job.name or job.job_id,
         replace_existing=True,
     )
-    
+
     logger.info(f"Registered scheduled job: {job.job_id}")
 
 
