@@ -18,7 +18,7 @@ from app.models.clothing import (
 from app.models.season import Season
 from app.persistence.queries import clothing as clothing_queries
 from app.persistence.queries import outfit as outfit_queries
-from app.services.image import image_manager
+from app.services.image import delete_clothing_image, move_preview_image_to_permanent
 from app.utils.exceptions import (
     ClothingColorMissingError,
     ClothingIDMissingError,
@@ -155,7 +155,7 @@ class ClothingManager:
             logger.error(traceback.format_exc())
             raise
 
-        image_manager.move_preview_image_to_permanent(image_id)
+        move_preview_image_to_permanent(image_id)
 
         return clothing
 
@@ -298,9 +298,9 @@ class ClothingManager:
                             "The provided image file does not exist."
                         )
 
-                    image_manager.delete_clothing_image(image_id=image_id)
+                    delete_clothing_image(image_id=image_id)
                     fields["image_id"] = image_id
-                    image_manager.move_preview_image_to_permanent(image_id)
+                    move_preview_image_to_permanent(image_id)
 
                 if isinstance(sub_category, str):
                     if sub_category.upper() not in ClothingSubCategory.__members__:
@@ -397,7 +397,7 @@ class ClothingManager:
                     if cast(int, affected.item_count) <= 2:
                         outfit_queries.soft_delete_by_id(session, affected.outfit_id)
 
-            image_manager.delete_clothing_image(image_row.image_id)
+            delete_clothing_image(image_row.image_id)
         except ClothingNotFoundError:
             raise
         except Exception as e:
