@@ -94,6 +94,29 @@ services:
         max-size: "10m"
         max-file: "5"
 
+  image-worker:
+    image: ghcr.io/davidriegel/drssed-api:1.1.0
+    container_name: image-worker
+    command: [ "worker" ]
+    env_file: .env
+    volumes:
+      - ./app/static:/app/app/static
+      - ./logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - backend
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
 networks:
   backend:
     driver: bridge

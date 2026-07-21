@@ -93,6 +93,30 @@ services:
         max-size: "10m"
         max-file: "5"
 
+  image-worker:
+      build:
+        context: .
+      image: drssed-api:dev
+      container_name: image-worker-dev
+      command: ["worker"]
+      env_file: .env
+      volumes:
+        - ./:/app
+        - dev_pycache:/app/__pycache__
+        - dev_venv:/app/venv
+      depends_on:
+        redis:
+          condition: service_healthy
+      restart: unless-stopped
+      init: true
+      networks:
+        - backend
+      logging:
+        driver: "json-file"
+        options:
+          max-size: "10m"
+          max-file: "5"
+
 networks:
   backend:
     driver: bridge
