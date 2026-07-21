@@ -157,6 +157,7 @@ def prepare_static_directories():
         "app/static/clothing_images",
         "app/static/profile_pictures",
         "app/static/temp",
+        "app/static/temp/process",
         "app/static/outfit_collages",
     ]
     for directory in static_dirs:

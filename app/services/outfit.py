@@ -15,7 +15,7 @@ from app.persistence.queries import clothing as clothing_queries
 from app.persistence.queries import outfit as outfit_queries
 from app.persistence.schemas.outfit import OutfitClothingRow
 from app.services.clothing import clothing_manager
-from app.services.image import image_manager
+from app.services.image import delete_outfit_preview, generate_outfit_preview
 from app.utils.exceptions import (
     OutfitClothingIDInvalidError,
     OutfitFavoriteMissingError,
@@ -283,7 +283,7 @@ class OutfitManager:
                 )
             )
 
-        image_manager.generate_outfit_preview(outfit_id, items=validated_items)
+        generate_outfit_preview(outfit_id, items=validated_items)
 
         outfit = Outfit(
             outfit_id=outfit_id,
@@ -335,7 +335,7 @@ class OutfitManager:
                 )
         except Exception:
             try:
-                image_manager.delete_outfit_preview(outfit_id)
+                delete_outfit_preview(outfit_id)
             except Exception:
                 pass
             raise
@@ -540,9 +540,7 @@ class OutfitManager:
                 )
             )
 
-        image_manager.generate_outfit_preview(
-            outfit_id=outfit_id, items=validated_items
-        )
+        generate_outfit_preview(outfit_id=outfit_id, items=validated_items)
 
         outfit_queries.clear_clothing_placements(session, outfit_id)
         outfit_queries.add_clothing_placements(
@@ -612,7 +610,7 @@ class OutfitManager:
             )
             raise
 
-        image_manager.delete_outfit_preview(outfit_id)
+        delete_outfit_preview(outfit_id)
 
 
 outfit_manager = OutfitManager()
