@@ -63,7 +63,7 @@ services:
     logging: *default-logging
 
   api:
-    image: ghcr.io/davidriegel/drssed-api:1.1.0
+    image: ghcr.io/davidriegel/drssed-api:latest
     container_name: api
     env_file: .env
     volumes:
@@ -95,7 +95,7 @@ services:
         max-file: "5"
 
   image-worker:
-    image: ghcr.io/davidriegel/drssed-api:1.1.0
+    image: ghcr.io/davidriegel/drssed-api:latest
     container_name: image-worker
     command: [ "worker" ]
     env_file: .env
