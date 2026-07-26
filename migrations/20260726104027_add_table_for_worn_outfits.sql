@@ -8,9 +8,9 @@
 CREATE TABLE outfit_wears (
     user_id VARCHAR(36) NOT NULL,
     outfit_id VARCHAR(36) NOT NULL,
-    worn_on DATE NOT NULL DEFAULT CURRENT_DATE,
-    feels_like REAL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_DATE,
+    worn_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    feels_like REAL NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_outfit_user
         FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
     CONSTRAINT fk_wear_outfit
