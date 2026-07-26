@@ -333,8 +333,8 @@ def soft_delete_by_id(session, outfit_id: str) -> None:
     )
 
 
-def soft_delete_for_user(session, user_id: str, outfit_id: str) -> int:
-    """Marks an outfit as deleted for a given user. Returns affected row count."""
+def soft_delete_for_user(session, user_id: str, outfit_id: str) -> bool:
+    """Marks an outfit as deleted for a given user. Returns success or failure."""
     result = session.execute(
         """
         UPDATE outfits
@@ -343,4 +343,5 @@ def soft_delete_for_user(session, user_id: str, outfit_id: str) -> int:
         """,
         {"outfit_id": outfit_id, "user_id": user_id},
     )
-    return getattr(result, "rowcount", 0)
+
+    return result.is_success()

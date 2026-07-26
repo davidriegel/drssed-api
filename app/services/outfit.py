@@ -596,11 +596,11 @@ class OutfitManager:
     def soft_delete_outfit_by_id(self, user_id: str, outfit_id: str) -> None:
         try:
             with get_session() as session:
-                affected = outfit_queries.soft_delete_for_user(
+                success = outfit_queries.soft_delete_for_user(
                     session, user_id, outfit_id
                 )
 
-                if affected == 0:
+                if not success:
                     raise OutfitNotFoundError
         except OutfitNotFoundError:
             raise
