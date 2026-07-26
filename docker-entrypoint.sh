@@ -7,7 +7,7 @@ if [ "${1:-api}" = "worker" ]; then
 fi
 
 echo "Running database migrations..."
-sqlspec --config app.core.database.db upgrade --no-prompt
+sqlspec upgrade --no-prompt
 
 echo "Starting Gunicorn..."
 exec gunicorn -c gunicorn.conf.py main:api
