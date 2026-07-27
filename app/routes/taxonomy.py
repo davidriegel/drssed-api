@@ -5,6 +5,7 @@ from flask import Blueprint, jsonify, request
 
 from app.core.limiter import limiter
 from app.models.clothing import ClothingCategory, ClothingSubCategory
+from app.models.wear import WearOccasion, WeatherCondition
 
 taxonomy = Blueprint("taxonomy", __name__)
 
@@ -18,7 +19,13 @@ def _build_taxonomy() -> dict[str, list[str]]:
     return categories
 
 
-_TAXONOMY = {"categories": _build_taxonomy()}
+_TAXONOMY = {
+    "categories": _build_taxonomy(),
+    "wear": {
+        "weather": [condition.name for condition in WeatherCondition],
+        "occasions": [occasion.name for occasion in WearOccasion],
+    },
+}
 _TAXONOMY_ETAG = hashlib.sha256(
     json.dumps(_TAXONOMY, sort_keys=True).encode("utf-8")
 ).hexdigest()

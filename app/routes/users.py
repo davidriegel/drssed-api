@@ -8,6 +8,7 @@ from app.models.season import Season
 from app.services.authentication import authentication_manager
 from app.services.clothing import clothing_manager
 from app.services.outfit import outfit_manager
+from app.services.wear import wear_manager
 
 from ..core.limiter import limiter
 from ..services.user import user_manager
@@ -107,6 +108,95 @@ def sync_my_outfits():
             "server_time": datetime.now(timezone.utc).isoformat(),
         }
     ), 200
+
+
+@users.route("/me/outfit-wears/sync", methods=["GET"])
+@limiter.limit("5 per minute")
+@authorize_request
+def sync_my_outfit_wears():
+    updated_since_param = request.args.get("updated_since")
+
+    if updated_since_param:
+        try:
+            updated_since = datetime.fromisoformat(updated_since_param)
+            if updated_since.tzinfo is None:
+                updated_since = updated_since.replace(tzinfo=timezone.utc)
+        except ValueError:
+            return jsonify({"error": "Invalid updated_since timestamp"}), 400
+    else:
+        updated_since = datetime.fromtimestamp(0, tz=timezone.utc)
+
+    updated_wears, deleted_wear_ids = wear_manager.sync_wears(
+        user_id=g.user_id, updated_since=updated_since
+    )
+
+    return jsonify(
+        {
+            "updated": [wear.to_dict() for wear in updated_wears],
+            "deleted": deleted_wear_ids,
+            "server_time": datetime.now(timezone.utc).isoformat(),
+        }
+    ), 200
+
+
+@users.route("/me/outfit-wears/stats", methods=["GET"])
+@limiter.limit("10 per minute")
+@authorize_request
+def get_my_outfit_wear_stats() -> ResponseReturnValue:
+    stats = wear_manager.get_stats(
+        g.user_id,
+        date_from=request.args.get("from"),
+        date_to=request.args.get("to"),
+        top_limit=request.args.get("top", 5, type=int),
+    )
+
+    return jsonify({"stats": stats.to_dict()}), 200
+
+
+@users.route("/me/outfit-wears", methods=["GET"])
+@limiter.limit("10 per minute")
+@authorize_request
+def get_my_outfit_wears() -> ResponseReturnValue:
+    limit = request.args.get("limit", 50, type=int)
+    offset = request.args.get("offset", 0, type=int)
+
+    wears, total = wear_manager.get_wear_log(
+        g.user_id,
+        date_from=request.args.get("from"),
+        date_to=request.args.get("to"),
+        outfit_id=request.args.get("outfit_id"),
+        limit=limit,
+        offset=offset,
+    )
+
+    response = helper.build_paginated_response(
+        [wear.to_dict() for wear in wears], limit, offset, total
+    )
+    return jsonify(response), 200
+
+
+@users.route("/me/clothing/wear-stats", methods=["GET"])
+@limiter.limit("10 per minute")
+@authorize_request
+def get_my_clothing_wear_stats() -> ResponseReturnValue:
+    limit = request.args.get("limit", 50, type=int)
+    offset = request.args.get("offset", 0, type=int)
+    order = request.args.get("order", "most", type=str)
+
+    if order not in ("most", "least"):
+        raise ValidationError
+
+    items, total = wear_manager.get_clothing_wear_stats(
+        g.user_id,
+        least_worn_first=order == "least",
+        limit=limit,
+        offset=offset,
+    )
+
+    response = helper.build_paginated_response(
+        [item.to_dict() for item in items], limit, offset, total
+    )
+    return jsonify(response), 200
 
 
 @users.route("/<user_id>/outfits", methods=["GET"])
