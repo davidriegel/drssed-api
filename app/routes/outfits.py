@@ -5,7 +5,9 @@ from app.core.limiter import limiter
 from app.models.outfit import OutfitTags
 from app.models.season import Season
 from app.services.outfit import outfit_manager
+from app.services.wear import wear_manager
 from app.utils.exceptions import ValidationError
+from app.utils.helpers import helper
 from app.utils.middleware.authentication import authorize_request
 
 outfits = Blueprint("outfits", __name__)
@@ -54,6 +56,73 @@ def patch_outfit(outfit_id: str):
     )
 
     return jsonify({"outfit": outfit.to_dict()}), 200
+
+
+@outfits.route("/<outfit_id>/wears", methods=["POST"])
+@limiter.limit("10 per minute")
+@authorize_request
+def log_outfit_wear(outfit_id: str) -> ResponseReturnValue:
+    data: dict = request.get_json(silent=True) or {}
+
+    wear = wear_manager.log_wear(
+        g.user_id,
+        outfit_id,
+        worn_on=data.get("worn_on"),
+        feels_like=data.get("feels_like"),
+        temperature=data.get("temperature"),
+        weather=data.get("weather"),
+        occasion=data.get("occasion"),
+        rating=data.get("rating"),
+        note=data.get("note"),
+    )
+
+    return jsonify({"wear": wear.to_dict()}), 201
+
+
+@outfits.route("/<outfit_id>/wears", methods=["GET"])
+@limiter.limit("10 per minute")
+@authorize_request
+def get_outfit_wears(outfit_id: str) -> ResponseReturnValue:
+    limit = request.args.get("limit", 50, type=int)
+    offset = request.args.get("offset", 0, type=int)
+
+    wears, total = wear_manager.get_wear_log_for_outfit(
+        g.user_id, outfit_id, limit=limit, offset=offset
+    )
+
+    response = helper.build_paginated_response(
+        [wear.to_dict() for wear in wears], limit, offset, total
+    )
+    return jsonify(response), 200
+
+
+@outfits.route("/wears/<wear_id>", methods=["GET"])
+@limiter.limit("10 per minute")
+@authorize_request
+def get_outfit_wear(wear_id: str) -> ResponseReturnValue:
+    wear = wear_manager.get_wear_by_id(g.user_id, wear_id)
+
+    return jsonify({"wear": wear.to_dict()}), 200
+
+
+@outfits.route("/wears/<wear_id>", methods=["PATCH"])
+@limiter.limit("10 per minute")
+@authorize_request
+def patch_outfit_wear(wear_id: str) -> ResponseReturnValue:
+    data: dict = request.get_json(silent=True) or {}
+
+    wear = wear_manager.patch_wear(g.user_id, wear_id, data)
+
+    return jsonify({"wear": wear.to_dict()}), 200
+
+
+@outfits.route("/wears/<wear_id>", methods=["DELETE"])
+@limiter.limit("10 per minute")
+@authorize_request
+def delete_outfit_wear(wear_id: str) -> ResponseReturnValue:
+    wear_manager.delete_wear(g.user_id, wear_id)
+
+    return "", 204
 
 
 @outfits.route("/generate", methods=["POST"])
