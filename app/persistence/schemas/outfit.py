@@ -36,6 +36,24 @@ class OutfitTagRow(BaseModel):
     tag: str
 
 
+class OutfitSeasonLinkRow(BaseModel):
+    """A season row carrying the outfit it belongs to, used for batched fetches."""
+
+    model_config = ConfigDict(frozen=True)
+
+    outfit_id: str
+    season: str
+
+
+class OutfitTagLinkRow(BaseModel):
+    """A tag row carrying the outfit it belongs to, used for batched fetches."""
+
+    model_config = ConfigDict(frozen=True)
+
+    outfit_id: str
+    tag: str
+
+
 class OutfitClothingRow(BaseModel):
     model_config = ConfigDict(frozen=True)
 
