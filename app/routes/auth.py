@@ -98,3 +98,24 @@ def login() -> ResponseReturnValue:
     g.user_id = authentication_manager.get_user_id_from_token(token.access_token)
 
     return jsonify(token.model_dump(mode="json")), 200
+
+
+@auth.route("/register", methods=["POST"])
+@limiter.limit("5 per minute")
+def register_user() -> ResponseReturnValue:
+    data: dict = request.get_json()
+
+    email = data.get("email")
+    username = data.get("username")
+    password = data.get("password")
+    profile_picture = data.get("profile_picture")
+
+    if not password or not profile_picture or (not email and not username):
+        raise ValidationError
+
+    token = authentication_manager.register_user(
+        email, username, password, profile_picture=profile_picture
+    )
+    g.user_id = authentication_manager.get_user_id_from_token(token.access_token)
+
+    return jsonify(token.model_dump(mode="json")), 201
