@@ -182,6 +182,40 @@ class AuthenticationManager:
 
         return self._generate_token_pair(user_sign_in.user_id, is_guest=False)
 
+    def register_user(
+        self,
+        email: str | None,
+        username: str | None,
+        password: str,
+        profile_picture: str,
+        preferred_language: str = "en",
+    ) -> Token:
+        """
+        Use this method to register a new user without having a previous guest account.
+
+        :param email: The email address of the user
+        :param username: The username of the user
+        :param password: The password of the user
+        :param profile_picture: The profile picture of the user
+        :param preferred_language: The preferred language of the user
+
+        :return: The new access token, its expiry in seconds, and a new refresh token
+
+        :raises ValidationError: If any form validation fails
+        :raises ConflictError: If either email or username already exists
+        :raises ValueError: If user does not exist after adding to database
+        """
+        user_id = self._add_user_to_database(
+            is_guest=False,
+            email=email,
+            username=username,
+            password=password,
+            profile_picture=profile_picture,
+            preferred_language=preferred_language,
+        )
+
+        return self._generate_token_pair(user_id, is_guest=False)
+
     def change_password(
         self, user_id: str, current_password: str, new_password: str
     ) -> Token:
