@@ -16,7 +16,7 @@ timeout = _int_env("GUNICORN_TIMEOUT", 180)
 graceful_timeout = _int_env("GUNICORN_GRACEFUL_TIMEOUT", 30)
 keepalive = _int_env("GUNICORN_KEEPALIVE", 5)
 
-preload_app = False
+preload_app = True
 
 accesslog = None
 errorlog = "-"
