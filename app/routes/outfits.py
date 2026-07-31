@@ -39,7 +39,10 @@ def patch_outfit(outfit_id: str):
 
     name = data.get("name")
     is_favorite = data.get("is_favorite")
-    is_public = data.get("is_public")
+
+    # NOTE: Default to private entries until social features implemented
+
+    is_public = False  # data.get("is_public")
     seasons = data.get("seasons")
     tags = data.get("tags")
     scene = data.get("scene")
