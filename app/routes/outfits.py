@@ -5,6 +5,7 @@ from app.core.limiter import limiter
 from app.models.outfit import OutfitTags
 from app.models.season import Season
 from app.services.outfit import outfit_manager
+from app.services.recommendation import recommendation_manager
 from app.services.wear import wear_manager
 from app.utils.exceptions import ValidationError
 from app.utils.helpers import helper
@@ -123,6 +124,26 @@ def delete_outfit_wear(wear_id: str) -> ResponseReturnValue:
     wear_manager.delete_wear(g.user_id, wear_id)
 
     return "", 204
+
+
+@outfits.route("/recommend", methods=["POST"])
+@limiter.limit("10 per minute")
+@authorize_request
+def recommend_outfits() -> ResponseReturnValue:
+    data: dict = request.get_json(silent=True) or {}
+
+    recommendations = recommendation_manager.recommend_outfits(
+        g.user_id,
+        feels_like=data.get("feels_like"),
+        limit=data.get("limit", 5),
+    )
+
+    return jsonify(
+        {
+            "outfits": [outfit.to_dict() for outfit in recommendations],
+            "count": len(recommendations),
+        }
+    ), 200
 
 
 @outfits.route("/generate", methods=["POST"])

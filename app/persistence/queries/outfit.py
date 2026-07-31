@@ -7,9 +7,25 @@ from app.persistence.schemas.outfit import (
     OutfitCountRow,
     OutfitIdRow,
     OutfitRow,
+    OutfitSeasonLinkRow,
     OutfitSeasonRow,
+    OutfitTagLinkRow,
     OutfitTagRow,
 )
+
+
+def _id_placeholders(outfit_ids: list[str]) -> tuple[str, dict]:
+    """Builds the placeholder list and params for an 'outfit_id IN (...)' filter."""
+    placeholders = []
+    params: dict = {}
+
+    for i, outfit_id in enumerate(outfit_ids):
+        key = f"outfit_{i}"
+        placeholders.append(f":{key}")
+        params[key] = outfit_id
+
+    return ", ".join(placeholders), params
+
 
 # Cleanup helpers
 
@@ -53,6 +69,63 @@ def get_by_id_for_user(user_id: str, outfit_id: str) -> OutfitRow | None:
             """,
             {"outfit_id": outfit_id, "user_id": user_id},
             schema_type=OutfitRow,
+        )
+
+
+def get_by_ids_for_user(user_id: str, outfit_ids: list[str]) -> list[OutfitRow]:
+    """Batched fetch of active outfit rows owned by the given user."""
+    if not outfit_ids:
+        return []
+
+    placeholders, params = _id_placeholders(outfit_ids)
+
+    with get_session() as session:
+        return session.select(
+            f"""
+            SELECT outfit_id, is_public, is_favorite, name, created_at, updated_at, user_id
+            FROM outfits
+            WHERE outfit_id IN ({placeholders}) AND user_id = :user_id AND deleted_at IS NULL
+            """,
+            {**params, "user_id": user_id},
+            schema_type=OutfitRow,
+        )
+
+
+def get_seasons_by_outfit_ids(outfit_ids: list[str]) -> list[OutfitSeasonLinkRow]:
+    """Batched fetch of the season rows of many outfits."""
+    if not outfit_ids:
+        return []
+
+    placeholders, params = _id_placeholders(outfit_ids)
+
+    with get_session() as session:
+        return session.select(
+            f"""
+            SELECT outfit_id, season
+            FROM outfit_seasons
+            WHERE outfit_id IN ({placeholders})
+            """,
+            params,
+            schema_type=OutfitSeasonLinkRow,
+        )
+
+
+def get_tags_by_outfit_ids(outfit_ids: list[str]) -> list[OutfitTagLinkRow]:
+    """Batched fetch of the tag rows of many outfits."""
+    if not outfit_ids:
+        return []
+
+    placeholders, params = _id_placeholders(outfit_ids)
+
+    with get_session() as session:
+        return session.select(
+            f"""
+            SELECT outfit_id, tag
+            FROM outfit_tags
+            WHERE outfit_id IN ({placeholders})
+            """,
+            params,
+            schema_type=OutfitTagLinkRow,
         )
 
 
