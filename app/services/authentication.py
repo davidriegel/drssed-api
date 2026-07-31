@@ -1,5 +1,6 @@
 __all__ = ["authentication_manager"]
 
+import os
 import re
 import secrets
 import uuid
@@ -312,21 +313,77 @@ class AuthenticationManager:
     def _add_user_to_database(
         self,
         is_guest: bool = True,
-        email: Optional[str] = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        profilePicture: Optional[str] = None,
+        email: str | None = None,
+        username: str | None = None,
+        password: str | None = None,
+        profile_picture: str | None = None,
         preferred_language: str = "en",
     ) -> str:
+        """
+        This private function is used to add a user to the database, with verifications for optional emails etc.
+
+        :param is_guest: Defaults to true, to insert new guest accounts quickly
+        :param email: Defaults to None, if is not None, verifies email
+        :param username: Defaults to None, if is not None, verifies username
+        :param password: Defaults to None, if is not None, verifies password and hashes it
+        :param profile_picture: Defaults to None, if is not None, verifies profile picture against default options
+        :param preferred_language: Defaults to "en"
+
+        """
         user_id = str(uuid.uuid4())
+        hashed_password = None
+
+        if isinstance(password, str):
+            if len(password) < 8:
+                raise ValidationError
+
+            hashed_password = PasswordHasher().hash(password)
+
+        if isinstance(profile_picture, str):
+            default_profile_pictures = [
+                os.path.splitext(file)[0]
+                for file in os.listdir("app/static/profile_pictures/default/")
+            ]
+
+            if profile_picture not in default_profile_pictures:
+                raise ValidationError
+
+            profile_picture = f"default/{profile_picture}"
+
+            if isinstance(email, str):
+                email = email.strip().lower()
+
+                if not re.match(r"^[^@]+@[^@]+\.[^@]+$", email):
+                    raise ValidationError
+
+                if user_queries.email_exists(email):
+                    raise ConflictError(field="email")
+            else:
+                email = None
+
+        if isinstance(username, str):
+            username = username.strip().lower()
+
+            if len(username) < 3:
+                raise ValidationError
+            if len(username) > 20:
+                raise ValidationError
+
+            if not re.match(r"^[a-zA-Z0-9_]+$", username):
+                raise ValidationError
+
+            if user_queries.username_exists(username):
+                raise ConflictError(field="username")
+        else:
+            username = None
 
         user = user_schemas.UserCreate(
             user_id=user_id,
             is_guest=is_guest,
             email=email,
             username=username,
-            password_hash=password,
-            profile_picture=profilePicture,
+            password_hash=hashed_password,
+            profile_picture=profile_picture,
             preferred_language=preferred_language,
         )
 
