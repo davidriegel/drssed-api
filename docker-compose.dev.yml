@@ -67,8 +67,6 @@ services:
     # the container's Python environment.
     volumes:
       - ./:/app
-      - dev_pycache:/app/__pycache__
-      - dev_venv:/app/venv
     depends_on:
       mysql:
         condition: service_healthy
@@ -78,7 +76,7 @@ services:
       - "127.0.0.1:8000:8000"
     restart: unless-stopped
     init: true
-    command: ["gunicorn", "-c", "gunicorn.conf.py", "--reload", "main:api"]
+    command: ["gunicorn", "-c", "gunicorn.conf.py", "--reload", "--reload-engine=poll", "main:api"]
     healthcheck:
       test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8000/health/live"]
       interval: 30s
@@ -102,8 +100,6 @@ services:
       env_file: .env
       volumes:
         - ./:/app
-        - dev_pycache:/app/__pycache__
-        - dev_venv:/app/venv
       depends_on:
         redis:
           condition: service_healthy
@@ -124,5 +120,3 @@ networks:
 volumes:
   mysql_data_dev:
   redis_data_dev:
-  dev_pycache:
-  dev_venv:

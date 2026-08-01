@@ -31,3 +31,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
     CMD curl --fail --silent --show-error http://127.0.0.1:8000/health/live || exit 1
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
+CMD ["gunicorn", "-c", "gunicorn.conf.py", "main:api"]
