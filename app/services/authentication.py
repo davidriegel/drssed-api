@@ -25,6 +25,7 @@ from app.persistence.schemas import user as user_schemas
 from app.utils.exceptions import (
     ConflictError,
     NotFoundError,
+    PermissionError,
     UnauthorizedError,
     ValidationError,
 )
@@ -190,14 +191,14 @@ class AuthenticationManager:
         user_sign_in = user_queries.get_password_hash_by_id(user_id)
 
         if not user_sign_in or not user_sign_in.password_hash:
-            raise UnauthorizedError
+            raise PermissionError
 
         hasher = PasswordHasher()
 
         try:
             hasher.verify(user_sign_in.password_hash, current_password)
         except VerifyMismatchError:
-            raise UnauthorizedError
+            raise PermissionError
 
         new_hash = hasher.hash(new_password)
         user_queries.update_password_hash(user_id, new_hash)
