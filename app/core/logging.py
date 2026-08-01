@@ -97,7 +97,17 @@ class ConsoleFormatter(logging.Formatter):
 
         extra_str = f" | {' | '.join(extras)}" if extras else ""
 
-        return f"{timestamp} | {level} | {message}{extra_str}"
+        line = f"{timestamp} | {level} | {message}{extra_str}"
+
+        if record.exc_info:
+            if not record.exc_text:
+                record.exc_text = self.formatException(record.exc_info)
+        if record.exc_text:
+            line += "\n" + record.exc_text
+        if record.stack_info:
+            line += "\n" + self.formatStack(record.stack_info)
+
+        return line
 
 
 class Logger:

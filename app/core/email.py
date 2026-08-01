@@ -116,15 +116,7 @@ def send_email(
         return email_id
 
     except Exception as e:
-        logger.error(
-            "Failed to send email",
-            extra={
-                "to": recipients,
-                "subject": subject,
-                "error": str(e),
-            },
-        )
-        raise EmailSendError() from e
+        raise EmailSendError(f"Resend rejected the request: {e}") from e
 
 
 def send_verification_email(
