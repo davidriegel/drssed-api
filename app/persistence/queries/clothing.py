@@ -50,7 +50,7 @@ def get_by_id(user_id: str, clothing_id: str) -> ClothingRow | None:
     with get_session() as session:
         return session.select_one_or_none(
             """
-            SELECT clothing_id, is_public, name, category, sub_category, color, warmth_level, created_at, user_id, image_id
+            SELECT clothing_id, is_public, name, category, sub_category, color, warmth_level, updated_at, created_at, user_id, image_id
             FROM clothing
             WHERE clothing_id = :clothing_id AND user_id = :user_id AND deleted_at IS NULL
             """,
@@ -84,7 +84,7 @@ def get_updated_since(user_id: str, updated_since: datetime) -> list[ClothingRow
     with get_session() as session:
         return session.select(
             """
-            SELECT clothing_id, is_public, name, category, sub_category, color, warmth_level, created_at, user_id, image_id
+            SELECT clothing_id, is_public, name, category, sub_category, color, warmth_level, updated_at, created_at, user_id, image_id
             FROM clothing
             WHERE user_id = :user_id AND updated_at > :updated_since AND deleted_at IS NULL
             ORDER BY updated_at ASC
@@ -153,7 +153,7 @@ def list_for_user(
     params["offset"] = offset
 
     sql = f"""
-        SELECT c.clothing_id, c.is_public, c.name, c.category, c.sub_category, c.color, c.warmth_level, c.created_at, c.user_id, c.image_id
+        SELECT c.clothing_id, c.is_public, c.name, c.category, c.sub_category, c.color, c.warmth_level, c.updated_at, c.created_at, c.user_id, c.image_id
         FROM clothing c
         WHERE {" AND ".join(where_clauses)}
         ORDER BY c.created_at DESC
@@ -279,7 +279,7 @@ def get_basic_for_update(session, user_id: str, clothing_id: str) -> ClothingRow
     """Fetches the current clothing row for comparison during update."""
     return session.select_one_or_none(
         """
-        SELECT clothing_id, is_public, name, category, sub_category, color, warmth_level, created_at, user_id, image_id
+        SELECT clothing_id, is_public, name, category, sub_category, color, warmth_level, updated_at, created_at, user_id, image_id
         FROM clothing
         WHERE clothing_id = :clothing_id AND user_id = :user_id AND deleted_at IS NULL
         """,
