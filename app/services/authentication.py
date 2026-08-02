@@ -14,13 +14,15 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 
 from app.core.database import get_session
-from app.core.email import send_verification_email
+from app.core.email import send_password_reset_email, send_verification_email
 from app.core.logging import get_logger
 from app.models.token import AccessToken, Token
 from app.persistence.queries import email_verification as email_verification_queries
+from app.persistence.queries import password_reset as password_reset_queries
 from app.persistence.queries import refresh_token as refresh_token_queries
 from app.persistence.queries import user as user_queries
 from app.persistence.schemas import email_verification as email_verification_schemas
+from app.persistence.schemas import password_reset as password_reset_schemas
 from app.persistence.schemas import refresh_token as refresh_token_schemas
 from app.persistence.schemas import user as user_schemas
 from app.utils.exceptions import (
@@ -42,6 +44,7 @@ REFRESH_TOKEN_EXPIRY_DAYS = 90
 REFRESH_TOKEN_LENGTH = 16
 
 EMAIL_VERIFICATION_TOKEN_EXPIRY_HOURS = 24
+PASSWORD_RESET_TOKEN_EXPIRY_HOURS = 1
 
 logger = get_logger()
 
@@ -241,6 +244,95 @@ class AuthenticationManager:
         refresh_token_queries.delete_by_user_id(user_id)
 
         return self._generate_token_pair(user_id, is_guest=False)
+
+    def request_password_reset(self, email: str, preferred_language: str) -> None:
+        """
+        Sends a password reset link to the given address, if it belongs to an
+        account that can sign in with a password.
+
+        Returns without raising when no such account exists, so that callers
+        cannot use this method to find out which addresses are registered.
+
+        :param email: The email address the reset link is requested for
+        :param preferred_language: The language the email is sent in
+
+        :raises ValidationError: If the email is not a valid address
+        """
+        email = email.strip().lower()
+
+        if not re.match(r"^[^@]+@[^@]+\.[^@]+$", email):
+            raise ValidationError
+
+        user_sign_in = user_queries.get_for_login_by_email(email)
+
+        if not user_sign_in or not user_sign_in.password_hash:
+            logger.debug("Password reset requested for an account without password")
+            return
+
+        new_reset_token = password_reset_schemas.PasswordResetToken(
+            token=secrets.token_urlsafe(24),
+            user_id=user_sign_in.user_id,
+            expires_at=datetime.now(timezone.utc)
+            + timedelta(hours=PASSWORD_RESET_TOKEN_EXPIRY_HOURS),
+            used_at=None,
+        )
+
+        with get_session() as session:
+            password_reset_queries.expire_for_user(session, user_sign_in.user_id)
+            password_reset_queries.create(session, new_reset_token)
+
+        public_url = str(
+            urljoin(
+                getenv("API_BASE_URL", ""),
+                f"/auth/password/reset?token={new_reset_token.token}",
+            )
+        )
+
+        send_password_reset_email(
+            email,
+            preferred_language,
+            public_url,
+            PASSWORD_RESET_TOKEN_EXPIRY_HOURS,
+        )
+
+    def is_password_reset_token_valid(self, token: str) -> bool:
+        """
+        :params token str: The password reset token to check
+
+        :returns bool: True if the token exists, is unused and not expired
+        """
+        reset_token = password_reset_queries.get_by_token(token)
+
+        return bool(reset_token and not reset_token.used_at)
+
+    def reset_password(self, token: str, new_password: str) -> None:
+        """
+        Sets a new password from a password reset token and signs the user out
+        everywhere by revoking all refresh tokens.
+
+        :param token: The password reset token from the emailed link
+        :param new_password: The new password of the user
+
+        :raises NotFoundError: If the token is unknown, expired or already used
+        :raises ValidationError: If the new password is too short
+        """
+        reset_token = password_reset_queries.get_by_token(token)
+
+        if not reset_token or reset_token.used_at:
+            raise NotFoundError
+
+        if len(new_password) < 8:
+            raise ValidationError
+
+        new_hash = PasswordHasher().hash(new_password)
+
+        with get_session() as session:
+            password_reset_queries.mark_as_used(session, token)
+            user_queries.update_password_hash_in_session(
+                session, reset_token.user_id, new_hash
+            )
+
+        refresh_token_queries.delete_by_user_id(reset_token.user_id)
 
     def request_email_change(
         self,
