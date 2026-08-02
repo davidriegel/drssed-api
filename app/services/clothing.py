@@ -121,6 +121,7 @@ class ClothingManager:
             color,
             warmth_level,
             datetime.now(timezone.utc),
+            datetime.now(timezone.utc),
             user_id,
             image_id,
             seasons,

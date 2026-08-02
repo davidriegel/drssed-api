@@ -118,6 +118,7 @@ class Clothing:
     sub_category: ClothingSubCategory
     color: str
     warmth_level: int
+    updated_at: datetime
     created_at: datetime
     user_id: str
     image_id: str
@@ -126,6 +127,12 @@ class Clothing:
 
     def to_dict(self) -> dict:
         data = asdict(self)
+        if isinstance(data["updated_at"], datetime):
+            data["updated_at"] = (
+                data["updated_at"]
+                .replace(tzinfo=timezone.utc)
+                .isoformat(timespec="seconds")
+            )
         if isinstance(data["created_at"], datetime):
             data["created_at"] = (
                 data["created_at"]
@@ -144,6 +151,7 @@ class Clothing:
             category=ClothingCategory(core["category"]),
             sub_category=ClothingSubCategory(core["sub_category"]),
             warmth_level=core["warmth_level"],
+            updated_at=core["updated_at"],
             created_at=core["created_at"],
             user_id=core["user_id"],
             image_id=core["image_id"],
