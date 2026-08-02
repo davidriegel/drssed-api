@@ -226,6 +226,23 @@ def update_password_hash(user_id: str, password_hash: str) -> None:
         )
 
 
+def update_password_hash_in_session(session, user_id: str, password_hash: str) -> None:
+    """
+    Updates the password hash for a user, within an externally-managed session.
+
+    Session-parameter version: meant to be called inside a transaction that
+    also marks the corresponding password reset token as used.
+    """
+    session.execute(
+        """
+        UPDATE users
+        SET password_hash = :password_hash
+        WHERE user_id = :user_id
+        """,
+        {"user_id": user_id, "password_hash": password_hash},
+    )
+
+
 def delete_by_id(user_id: str) -> None:
     """Deletes a user account by their ID."""
     with get_session() as session:
