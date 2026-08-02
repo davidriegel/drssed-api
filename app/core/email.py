@@ -1,5 +1,6 @@
 __all__ = [
     "send_verification_email",
+    "send_password_reset_email",
     "EmailSendError",
 ]
 
@@ -169,6 +170,58 @@ def send_verification_email(
         text=text,
         attachments=[],
         tags=[{"name": "category", "value": "verification"}],
+    )
+
+
+def send_password_reset_email(
+    user_email: str,
+    locale: str,
+    reset_link: str,
+    expiry_hours: int,
+) -> Optional[str]:
+    """
+    Send a password-reset email containing a one-time reset link.
+
+    Renders the HTML and plain-text templates for the given locale, falling
+    back to DEFAULT_LOCALE if locale is unsupported.
+
+    :param user_email: Recipient's email address.
+    :param locale: Target locale ('en' or 'de'). Falls back to default if unsupported.
+    :param reset_link: The full URL the user should open to choose a new password.
+    :param expiry_hours: How many hours until the reset link expires.
+    :return: Resend email ID on success, None if email sending is disabled.
+    :raises EmailSendError: If sending fails.
+    """
+    resolved_locale = locale if locale in SUPPORTED_LOCALES else DEFAULT_LOCALE
+
+    template_vars = {
+        "reset_link": reset_link,
+        "expiry_hours": expiry_hours,
+        "current_year": datetime.now().year,
+        "lang": resolved_locale,
+    }
+
+    html = render_template(
+        f"/password_reset/password_reset.{resolved_locale}.html",
+        **template_vars,
+    )
+    text = render_template(
+        f"/password_reset/password_reset.{resolved_locale}.txt",
+        **template_vars,
+    )
+
+    subject = render_template(
+        f"/password_reset/subject.{resolved_locale}.txt",
+        **template_vars,
+    ).strip()
+
+    return send_email(
+        to=user_email,
+        subject=subject,
+        html=html,
+        text=text,
+        attachments=[],
+        tags=[{"name": "category", "value": "password_reset"}],
     )
 
 
