@@ -311,7 +311,14 @@ def update_fields(session, clothing_id: str, fields: dict) -> None:
     if not fields:
         return
 
-    allowed_fields = {"name", "color", "warmth_level", "image_id", "sub_category"}
+    allowed_fields = {
+        "name",
+        "is_public",
+        "color",
+        "warmth_level",
+        "image_id",
+        "sub_category",
+    }
     set_clauses = []
     params: dict = {"clothing_id": clothing_id}
 

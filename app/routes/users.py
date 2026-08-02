@@ -241,13 +241,14 @@ def create_outfit():
     if not data:
         return jsonify({"error": "No data provided"}), 400
 
+    # NOTE: Default to private entries until social features implemented
     outfit = outfit_manager.create_outfit(
         user_id=g.user_id,
         name=data.get("name"),
         scene=data.get("scene"),
         seasons=data.get("seasons"),
         tags=data.get("tags"),
-        is_public=data.get("is_public"),
+        is_public=False,  # data.get("is_public"),
         is_favorite=data.get("is_favorite"),
     )
 
@@ -324,7 +325,10 @@ def create_clothing_piece():
     if not data:
         return jsonify({"error": "No data provided"}), 400
 
+    # NOTE: Default to private entries until social features implemented
+
     name = data.get("name", None)
+    is_public = False  # data.get("is_public", False)
     sub_category = data.get("sub_category", None)
     color = data.get("color", None)
     warmth_level = data.get("warmth_level", None)
@@ -361,6 +365,7 @@ def create_clothing_piece():
     clothing = clothing_manager.create_clothing(
         g.user_id,
         name,
+        is_public,
         typed_sub_category,
         image_id,
         color,

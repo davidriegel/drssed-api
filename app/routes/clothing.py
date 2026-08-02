@@ -31,7 +31,10 @@ def patch_clothing_piece(clothing_id: str):
     request.headers["Authorization"]
     data = request.get_json()
 
+    # NOTE: Default to private entries until social features implemented
+
     name = data.get("name", None)
+    is_public = False  # data.get("is_public", None)
     sub_category = data.get("sub_category", None)
     seasons = data.get("seasons", None)
     tags = data.get("tags", None)
@@ -42,6 +45,7 @@ def patch_clothing_piece(clothing_id: str):
         g.user_id,
         clothing_id,
         name,
+        is_public,
         sub_category,
         color,
         warmth_level,

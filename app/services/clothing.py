@@ -87,6 +87,7 @@ class ClothingManager:
         self,
         user_id: str,
         name: str,
+        is_public: bool,
         sub_category: ClothingSubCategory,
         image_id: str,
         color: str,
@@ -113,7 +114,7 @@ class ClothingManager:
 
         clothing = Clothing(
             clothing_id,
-            True,
+            is_public,
             name,
             sub_category.category,
             sub_category,
@@ -242,6 +243,7 @@ class ClothingManager:
         user_id: str,
         clothing_id: str,
         name: Optional[str] = None,
+        is_public: Optional[bool] = None,
         sub_category: Optional[str] = None,
         color: Optional[str] = None,
         warmth_level: Optional[int] = None,
@@ -274,6 +276,9 @@ class ClothingManager:
                     if name != current.name:
                         fields["name"] = name
 
+                if isinstance(is_public, bool):
+                    if is_public != current.is_public:
+                        fields["is_public"] = is_public
                 color_regex = r"^#([A-Fa-f0-9]{6})$"
                 if isinstance(color, str):
                     if not re_match(color_regex, color):
