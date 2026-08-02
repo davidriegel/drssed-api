@@ -42,6 +42,81 @@ def verify_email():
         ), 400
 
 
+@auth.route("/password/forgot", methods=["POST"])
+@limiter.limit("5 per hour")
+def forgot_password():
+    data: dict = request.get_json() or {}
+
+    email = data.get("email")
+
+    if not email:
+        raise ValidationError
+
+    authentication_manager.request_password_reset(email, g.preferred_language)
+
+    return {}, 202
+
+
+@auth.route("/password/reset", methods=["GET"])
+@limiter.limit("60 per minute")
+def reset_password_form():
+    token = request.args.get("token")
+
+    if not token or not authentication_manager.is_password_reset_token_valid(token):
+        return render_template(
+            f"/password_reset/new_password.{g.preferred_language}.html",
+            status="invalid",
+        ), 400
+
+    return render_template(
+        f"/password_reset/new_password.{g.preferred_language}.html",
+        status="form",
+        token=token,
+    ), 200
+
+
+@auth.route("/password/reset", methods=["POST"])
+@limiter.limit("10 per hour")
+def reset_password():
+    token = request.form.get("token")
+    new_password = request.form.get("new_password")
+    confirmed_password = request.form.get("confirmed_password")
+
+    if not token:
+        return render_template(
+            f"/password_reset/new_password.{g.preferred_language}.html",
+            status="invalid",
+        ), 400
+
+    if not new_password or new_password != confirmed_password:
+        return render_template(
+            f"/password_reset/new_password.{g.preferred_language}.html",
+            status="form",
+            token=token,
+            error="mismatch",
+        ), 400
+
+    try:
+        authentication_manager.reset_password(token, new_password)
+    except ValidationError:
+        return render_template(
+            f"/password_reset/new_password.{g.preferred_language}.html",
+            status="form",
+            token=token,
+            error="too_short",
+        ), 400
+    except NotFoundError:
+        return render_template(
+            f"/password_reset/new_password.{g.preferred_language}.html",
+            status="invalid",
+        ), 400
+
+    return render_template(
+        f"/password_reset/new_password.{g.preferred_language}.html",
+        status="success",
+    ), 200
+
+
 @auth.route("/guest", methods=["POST"])
 @limiter.limit("10 per hour")
 def register_guest():
