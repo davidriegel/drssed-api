@@ -13,6 +13,7 @@ from app.models.outfit import CanvasPlacement, Outfit, OutfitSummary, OutfitTags
 from app.models.season import Season
 from app.persistence.queries import clothing as clothing_queries
 from app.persistence.queries import outfit as outfit_queries
+from app.persistence.queries import wear as wear_queries
 from app.persistence.schemas.outfit import OutfitClothingRow
 from app.services.clothing import clothing_manager
 from app.services.image import delete_outfit_preview, generate_outfit_preview
@@ -602,6 +603,8 @@ class OutfitManager:
 
                 if not success:
                     raise OutfitNotFoundError
+
+                wear_queries.soft_delete_for_outfit(session, user_id, outfit_id)
         except OutfitNotFoundError:
             raise
         except Exception as e:
