@@ -486,3 +486,16 @@ def soft_delete_for_user(session, user_id: str, wear_id: str) -> bool:
     )
 
     return result.is_success()
+
+
+def soft_delete_for_outfit(session, user_id: str, outfit_id: str) -> bool:
+    """Marks a wear entry as deleted for a given user. Returns success or failure."""
+    result = session.execute(
+        """
+        UPDATE outfit_wears SET deleted_at = NOW()
+        WHERE outfit_id = :outfit_id AND user_id = :user_id AND deleted_at IS NULL
+        """,
+        {"outfit_id": outfit_id, "user_id": user_id},
+    )
+
+    return result.is_success()
