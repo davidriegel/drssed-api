@@ -45,7 +45,7 @@ class UserSignIn(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     user_id: str
-    password_hash: str
+    password_hash: str | None
 
 
 class UserExistsCheck(BaseModel):
@@ -77,7 +77,7 @@ class UserEmailVerificationStatus(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     user_id: str
-    email: str
+    email: str | None
     email_verified_at: UtcDatetime | None
     preferred_language: str
 

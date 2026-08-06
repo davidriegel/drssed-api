@@ -68,6 +68,7 @@ services:
     env_file: .env
     volumes:
       - ./app/static:/app/app/static
+      - ./app/uploads:/app/app/uploads
       - ./logs:/app/logs
     depends_on:
       mysql:
@@ -101,6 +102,7 @@ services:
     env_file: .env
     volumes:
       - ./app/static:/app/app/static
+      - ./app/uploads:/app/app/uploads
       - ./logs:/app/logs
     depends_on:
       redis:

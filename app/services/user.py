@@ -5,6 +5,7 @@ import re
 from typing import Optional
 
 from argon2 import PasswordHasher
+from sqlspec.exceptions import UniqueViolationError
 
 from app.core.logging import get_logger
 from app.persistence.queries import user as user_queries
@@ -70,9 +71,14 @@ class UserManager:
 
         hashed_password = PasswordHasher().hash(password)
 
-        user_queries.upgrade_guest_account(
-            user_id, hashed_password, profile_picture, email, username
-        )
+        try:
+            user_queries.upgrade_guest_account(
+                user_id, hashed_password, profile_picture, email, username
+            )
+        except UniqueViolationError as e:
+            raise ConflictError(
+                field="username" if "uq_users_username" in str(e) else "email"
+            )
 
         user = user_queries.get_profile_by_id(user_id)
 

@@ -3,6 +3,7 @@ from datetime import datetime
 from app.core.database import get_session
 from app.persistence.schemas.cleanup import FileReference
 from app.persistence.schemas.outfit import (
+    OutfitClothingLinkRow,
     OutfitClothingRow,
     OutfitCountRow,
     OutfitIdRow,
@@ -126,6 +127,28 @@ def get_tags_by_outfit_ids(outfit_ids: list[str]) -> list[OutfitTagLinkRow]:
             """,
             params,
             schema_type=OutfitTagLinkRow,
+        )
+
+
+def get_clothing_canvas_by_outfit_ids(
+    outfit_ids: list[str],
+) -> list[OutfitClothingLinkRow]:
+    """Batched fetch of the canvas placement rows of many outfits."""
+    if not outfit_ids:
+        return []
+
+    placeholders, params = _id_placeholders(outfit_ids)
+
+    with get_session() as session:
+        return session.select(
+            f"""
+            SELECT outfit_id, clothing_id, position_x, position_y, z_index, scale, rotation
+            FROM outfit_clothing
+            WHERE outfit_id IN ({placeholders})
+            ORDER BY z_index
+            """,
+            params,
+            schema_type=OutfitClothingLinkRow,
         )
 
 
@@ -407,7 +430,7 @@ def soft_delete_by_id(session, outfit_id: str) -> None:
 
 
 def soft_delete_for_user(session, user_id: str, outfit_id: str) -> bool:
-    """Marks an outfit as deleted for a given user. Returns success or failure."""
+    """Marks an outfit as deleted for a given user. Returns whether a row matched."""
     result = session.execute(
         """
         UPDATE outfits
@@ -417,4 +440,4 @@ def soft_delete_for_user(session, user_id: str, outfit_id: str) -> bool:
         {"outfit_id": outfit_id, "user_id": user_id},
     )
 
-    return result.is_success()
+    return result.rows_affected > 0

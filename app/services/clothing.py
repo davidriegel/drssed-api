@@ -60,18 +60,30 @@ class ClothingManager:
                 user_id, updated_since
             )
 
-            updated_clothes: list[Clothing] = []
-            for row in updated_rows:
-                seasons = clothing_queries.get_seasons_by_clothing_id(row.clothing_id)
-                tags = clothing_queries.get_tags_by_clothing_id(row.clothing_id)
+            clothing_ids = [row.clothing_id for row in updated_rows]
 
-                updated_clothes.append(
-                    Clothing.from_dict(
-                        row.model_dump(),
-                        [Season[s.season] for s in seasons],
-                        [ClothingTags[t.tag] for t in tags],
-                    )
+            seasons_by_clothing: dict[str, list[Season]] = {}
+            for season_row in clothing_queries.get_seasons_by_clothing_ids(
+                clothing_ids
+            ):
+                seasons_by_clothing.setdefault(season_row.clothing_id, []).append(
+                    Season[season_row.season]
                 )
+
+            tags_by_clothing: dict[str, list[ClothingTags]] = {}
+            for tag_row in clothing_queries.get_tags_by_clothing_ids(clothing_ids):
+                tags_by_clothing.setdefault(tag_row.clothing_id, []).append(
+                    ClothingTags[tag_row.tag]
+                )
+
+            updated_clothes = [
+                Clothing.from_dict(
+                    row.model_dump(),
+                    seasons_by_clothing.get(row.clothing_id, []),
+                    tags_by_clothing.get(row.clothing_id, []),
+                )
+                for row in updated_rows
+            ]
 
             deleted_ids = [row.clothing_id for row in deleted_rows]
         except Exception as e:

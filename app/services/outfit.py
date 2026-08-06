@@ -14,7 +14,7 @@ from app.models.season import Season
 from app.persistence.queries import clothing as clothing_queries
 from app.persistence.queries import outfit as outfit_queries
 from app.persistence.queries import wear as wear_queries
-from app.persistence.schemas.outfit import OutfitClothingRow
+from app.persistence.schemas.outfit import OutfitClothingLinkRow, OutfitClothingRow
 from app.services.clothing import clothing_manager
 from app.services.image import delete_outfit_preview, generate_outfit_preview
 from app.utils.exceptions import (
@@ -40,7 +40,7 @@ from app.utils.exceptions import (
 logger = get_logger()
 
 
-def _canvas_from_row(row: OutfitClothingRow) -> CanvasPlacement:
+def _canvas_from_row(row: OutfitClothingRow | OutfitClothingLinkRow) -> CanvasPlacement:
     return CanvasPlacement(
         clothing_id=row.clothing_id,
         x=float(row.position_x),
@@ -144,6 +144,24 @@ class OutfitManager:
 
         return placements
 
+    def _load_labels(
+        self, outfit_ids: list[str]
+    ) -> tuple[dict[str, list[Season]], dict[str, list[OutfitTags]]]:
+        """Batch-loads the seasons and tags of a page of outfits."""
+        seasons_by_outfit: dict[str, list[Season]] = {}
+        for season_link in outfit_queries.get_seasons_by_outfit_ids(outfit_ids):
+            seasons_by_outfit.setdefault(season_link.outfit_id, []).append(
+                Season(season_link.season)
+            )
+
+        tags_by_outfit: dict[str, list[OutfitTags]] = {}
+        for tag_link in outfit_queries.get_tags_by_outfit_ids(outfit_ids):
+            tags_by_outfit.setdefault(tag_link.outfit_id, []).append(
+                OutfitTags(tag_link.tag)
+            )
+
+        return seasons_by_outfit, tags_by_outfit
+
     def sync_outfits(
         self, user_id: str, updated_since: datetime
     ) -> tuple[list[Outfit], list[str]]:
@@ -151,20 +169,26 @@ class OutfitManager:
             updated_rows = outfit_queries.get_updated_since(user_id, updated_since)
             deleted_rows = outfit_queries.get_deleted_ids_since(user_id, updated_since)
 
-            updated_outfits: list[Outfit] = []
-            for row in updated_rows:
-                season_rows = outfit_queries.get_seasons_by_outfit_id(row.outfit_id)
-                tag_rows = outfit_queries.get_tags_by_outfit_id(row.outfit_id)
-                canvas_rows = outfit_queries.get_clothing_canvas(row.outfit_id)
+            outfit_ids = [row.outfit_id for row in updated_rows]
+            seasons_by_outfit, tags_by_outfit = self._load_labels(outfit_ids)
 
-                updated_outfits.append(
-                    Outfit.from_dict(
-                        row.model_dump(),
-                        [_canvas_from_row(c) for c in canvas_rows],
-                        [Season[s.season] for s in season_rows],
-                        [OutfitTags[t.tag] for t in tag_rows],
-                    )
+            canvas_by_outfit: dict[str, list[CanvasPlacement]] = {}
+            for canvas_row in outfit_queries.get_clothing_canvas_by_outfit_ids(
+                outfit_ids
+            ):
+                canvas_by_outfit.setdefault(canvas_row.outfit_id, []).append(
+                    _canvas_from_row(canvas_row)
                 )
+
+            updated_outfits = [
+                Outfit.from_dict(
+                    row.model_dump(),
+                    canvas_by_outfit.get(row.outfit_id, []),
+                    seasons_by_outfit.get(row.outfit_id, []),
+                    tags_by_outfit.get(row.outfit_id, []),
+                )
+                for row in updated_rows
+            ]
 
             deleted_ids = [row.outfit_id for row in deleted_rows]
         except Exception as e:
@@ -417,18 +441,18 @@ class OutfitManager:
                 offset=offset,
             )
 
-            outfit_list: list[OutfitSummary] = []
-            for row in rows:
-                season_rows = outfit_queries.get_seasons_by_outfit_id(row.outfit_id)
-                tag_rows = outfit_queries.get_tags_by_outfit_id(row.outfit_id)
+            seasons_by_outfit, tags_by_outfit = self._load_labels(
+                [row.outfit_id for row in rows]
+            )
 
-                outfit_list.append(
-                    OutfitSummary.from_dict(
-                        row.model_dump(),
-                        [Season(s.season) for s in season_rows],
-                        [OutfitTags(t.tag) for t in tag_rows],
-                    )
+            outfit_list = [
+                OutfitSummary.from_dict(
+                    row.model_dump(),
+                    seasons_by_outfit.get(row.outfit_id, []),
+                    tags_by_outfit.get(row.outfit_id, []),
                 )
+                for row in rows
+            ]
         except Exception as e:
             logger.error(
                 f"An unexpected error occurred while retrieving outfits for user {user_id}: {e}"
