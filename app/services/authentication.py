@@ -176,7 +176,7 @@ class AuthenticationManager:
         else:
             user_sign_in = None
 
-        if not user_sign_in:
+        if not user_sign_in or not user_sign_in.password_hash:
             raise UnauthorizedError
 
         try:
