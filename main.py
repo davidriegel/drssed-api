@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from flask import Flask, jsonify
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app.core.limiter import limiter
 from app.core.logging import get_logger, setup_logging
@@ -36,6 +37,16 @@ api = Flask(
     static_folder="app/static",
     static_url_path="/static",
     template_folder="app/templates",
+)
+
+# Must match the real hop count: trusting more makes the client IP spoofable.
+TRUSTED_PROXY_COUNT = int(os.getenv("TRUSTED_PROXY_COUNT", "1"))
+
+api.wsgi_app = ProxyFix(  # type: ignore[method-assign]
+    api.wsgi_app,
+    x_for=TRUSTED_PROXY_COUNT,
+    x_proto=TRUSTED_PROXY_COUNT,
+    x_host=TRUSTED_PROXY_COUNT,
 )
 
 setup_logging(api)

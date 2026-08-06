@@ -43,6 +43,7 @@ cp .env.example .env
 # Environment variables for Drssed API
 API_BASE_URL=http://localhost:8000
 SECRET_TOKEN_KEY=SECRET_KEY_VALUE_FOR_JWT_AUTHENTICATION
+TRUSTED_PROXY_COUNT=1 # Number of reverse proxies in front of the API
 
 # Gunicorn configuration
 GUNICORN_THREADS=2
