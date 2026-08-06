@@ -20,8 +20,8 @@ RUN mkdir -p logs \
             app/static/clothing_images \
             app/static/profile_pictures \
             app/static/temp \
-            app/static/temp/process \
-            app/static/outfit_collages
+            app/static/outfit_collages \
+            app/uploads
 
 RUN chmod +x docker-entrypoint.sh
 

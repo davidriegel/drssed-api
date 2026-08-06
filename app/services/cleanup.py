@@ -37,6 +37,7 @@ PROFILE_PICTURE_SUBDIR = "profile_pictures"
 CLOTHING_SUBDIR = "clothing_images"
 OUTFIT_SUBDIR = "outfit_collages"
 TEMP_SUBDIR = "temp"
+UPLOAD_DIR = "app/uploads"
 
 
 def _get_static_folder() -> Path:
@@ -143,25 +144,31 @@ def _delete_files(paths: list[str]) -> int:
 
 
 def run_temp_cleanup() -> None:
-    """Deletes temp files older than TEMP_FILE_MAX_AGE_HOURS."""
-    temp_dir = _get_static_folder() / TEMP_SUBDIR
+    """Deletes preview and raw upload files older than TEMP_FILE_MAX_AGE_HOURS."""
+    for directory in (_get_static_folder() / TEMP_SUBDIR, Path(UPLOAD_DIR)):
+        _delete_aged_files(directory)
 
-    if not temp_dir.exists():
-        logger.warning("Temp cleanup skipped: directory does not exist")
+
+def _delete_aged_files(directory: Path) -> None:
+    if not directory.exists():
+        logger.warning(
+            "Temp cleanup skipped: directory does not exist",
+            extra={"directory": str(directory)},
+        )
         return
 
     cutoff = (datetime.now() - timedelta(hours=TEMP_FILE_MAX_AGE_HOURS)).timestamp()
 
     logger.debug(
         "Start orphaned temporary file cleanup",
-        extra={"max_age_hours": TEMP_FILE_MAX_AGE_HOURS},
+        extra={"directory": str(directory), "max_age_hours": TEMP_FILE_MAX_AGE_HOURS},
     )
 
     deleted = 0
     skipped = 0
     failed = 0
 
-    for entry in temp_dir.iterdir():
+    for entry in directory.iterdir():
         if not entry.is_file():
             continue
 
@@ -178,7 +185,12 @@ def run_temp_cleanup() -> None:
 
     logger.debug(
         "Orphaned temporary file cleanup complete",
-        extra={"deleted": deleted, "skipped": skipped, "failed": failed},
+        extra={
+            "directory": str(directory),
+            "deleted": deleted,
+            "skipped": skipped,
+            "failed": failed,
+        },
     )
 
 
