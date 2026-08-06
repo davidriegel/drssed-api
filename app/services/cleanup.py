@@ -1,4 +1,5 @@
 __all__ = [
+    "delete_user_and_files",
     "run_guest_cleanup",
     "run_temp_cleanup",
     "run_orphan_files_cleanup",
@@ -85,7 +86,7 @@ def _do_guest_cleanup(session) -> None:
 
     for user in inactive_users:
         try:
-            files_deleted = _delete_user_and_files(session, user.user_id)
+            files_deleted = delete_user_and_files(session, user.user_id)
             session.commit()
             deleted_users += 1
             total_files_deleted += files_deleted
@@ -107,7 +108,7 @@ def _do_guest_cleanup(session) -> None:
     )
 
 
-def _delete_user_and_files(session, user_id: str) -> int:
+def delete_user_and_files(session, user_id: str) -> int:
     """Collects file paths, deletes the user row, then deletes the files."""
     files_to_delete = _collect_user_files(session, user_id)
     user_queries.delete_by_id_in_session(session, user_id)
