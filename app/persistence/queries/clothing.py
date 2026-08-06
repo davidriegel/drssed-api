@@ -9,6 +9,7 @@ from app.persistence.schemas.clothing import (
     ClothingIdSeasonRow,
     ClothingIdTagRow,
     ClothingImageIdRow,
+    ClothingImageRow,
     ClothingRow,
     ClothingSeasonRow,
     ClothingTagRow,
@@ -388,24 +389,29 @@ def soft_delete(session, user_id: str, clothing_id: str) -> None:
     )
 
 
-def exists_for_user(session, user_id: str, clothing_id: str) -> bool:
-    """Checks that a clothing item exists and is owned by the given user (active or not)."""
-    row = session.select_one_or_none(
-        "SELECT clothing_id FROM clothing WHERE clothing_id = :clothing_id AND user_id = :user_id",
-        {"clothing_id": clothing_id, "user_id": user_id},
-        schema_type=ClothingIdRow,
-    )
-    return row is not None
+def get_active_image_ids_for_user(
+    session, user_id: str, clothing_ids: list[str]
+) -> list[ClothingImageRow]:
+    """Batched fetch of image IDs for active clothing owned by the given user.
 
+    Doubles as the ownership check: an ID the user does not own, or one that is
+    soft-deleted, is simply absent from the result.
+    """
+    if not clothing_ids:
+        return []
 
-def exists_active_for_user(session, user_id: str, clothing_id: str) -> bool:
-    """Checks that a clothing item exists, is owned by the user, and is not soft-deleted."""
-    row = session.select_one_or_none(
-        """
-        SELECT clothing_id FROM clothing
-        WHERE clothing_id = :clothing_id AND user_id = :user_id AND deleted_at IS NULL
-        """,
-        {"clothing_id": clothing_id, "user_id": user_id},
-        schema_type=ClothingIdRow,
-    )
-    return row is not None
+    placeholders = []
+    params: dict = {"user_id": user_id}
+    for i, cid in enumerate(clothing_ids):
+        key = f"cid_{i}"
+        placeholders.append(f":{key}")
+        params[key] = cid
+
+    sql = f"""
+        SELECT clothing_id, image_id
+        FROM clothing
+        WHERE clothing_id IN ({", ".join(placeholders)})
+          AND user_id = :user_id
+          AND deleted_at IS NULL
+    """
+    return session.select(sql, params, schema_type=ClothingImageRow)

@@ -144,6 +144,48 @@ class OutfitManager:
 
         return placements
 
+    def _resolve_scene_items(
+        self, session, user_id: str, scene: list
+    ) -> tuple[list[dict], list[CanvasPlacement]]:
+        """Resolves each scene item to its clothing image, rejecting foreign or deleted items.
+
+        The batched lookup doubles as the ownership check, so a scene of any size
+        costs a single query.
+        """
+        images_by_clothing = {
+            row.clothing_id: row.image_id
+            for row in clothing_queries.get_active_image_ids_for_user(
+                session, user_id, [item["clothing_id"] for item in scene]
+            )
+        }
+
+        validated_items = []
+        clothing_canvas: list[CanvasPlacement] = []
+
+        for item in scene:
+            clothing_id = item["clothing_id"]
+            image_id = images_by_clothing.get(clothing_id)
+
+            if image_id is None:
+                raise OutfitClothingIDInvalidError(
+                    f"Clothing ID {clothing_id} invalid or not owned by user."
+                )
+
+            validated_items.append({"item": item, "image_id": image_id})
+
+            clothing_canvas.append(
+                CanvasPlacement(
+                    clothing_id=clothing_id,
+                    x=item["x"],
+                    y=item["y"],
+                    z=item["z"],
+                    scale=item["scale"],
+                    rotation=item["rotation"],
+                )
+            )
+
+        return validated_items, clothing_canvas
+
     def _load_labels(
         self, outfit_ids: list[str]
     ) -> tuple[dict[str, list[Season]], dict[str, list[OutfitTags]]]:
@@ -265,12 +307,10 @@ class OutfitManager:
         if len(scene) < 2:
             raise OutfitSceneInvalidError("scene.items must contain at least 2 items.")
 
-        clothing_ids = []
         for item in scene:
             cid = item.get("clothing_id")
             if not isinstance(cid, str) or not cid.strip():
                 raise OutfitSceneInvalidError("scene item clothing_id missing.")
-            clothing_ids.append(cid)
 
             for sub_key in ("x", "y", "scale", "rotation", "z"):
                 if sub_key not in item:
@@ -279,33 +319,8 @@ class OutfitManager:
         outfit_id = str(uuid.uuid4())
 
         with get_session() as session:
-            for cid in clothing_ids:
-                if not clothing_queries.exists_active_for_user(session, user_id, cid):
-                    raise OutfitClothingIDInvalidError(
-                        f"Clothing ID {cid} invalid or not owned by user."
-                    )
-
-        validated_items = []
-        clothing_canvas: list[CanvasPlacement] = []
-
-        for item in scene:
-            clothing_id = item["clothing_id"]
-            image_id = clothing_manager.get_image_id_by_clothing_id(
-                user_id=user_id,
-                clothing_id=clothing_id,
-            )
-
-            validated_items.append({"item": item, "image_id": image_id})
-
-            clothing_canvas.append(
-                CanvasPlacement(
-                    clothing_id=clothing_id,
-                    x=item["x"],
-                    y=item["y"],
-                    z=item["z"],
-                    scale=item["scale"],
-                    rotation=item["rotation"],
-                )
+            validated_items, clothing_canvas = self._resolve_scene_items(
+                session, user_id, scene
             )
 
         generate_outfit_preview(outfit_id, items=validated_items)
@@ -525,45 +540,18 @@ class OutfitManager:
         if len(scene) < 2:
             raise OutfitSceneInvalidError("scene.items must contain at least 2 items.")
 
-        clothing_ids = []
         for item in scene:
             cid = item.get("clothing_id")
             if not isinstance(cid, str) or not cid.strip():
                 raise OutfitSceneInvalidError("scene item clothing_id missing.")
-            clothing_ids.append(cid)
 
             for sub_key in ("x", "y", "scale", "rotation", "z"):
                 if sub_key not in item:
                     raise OutfitSceneInvalidError(f"scene item missing '{sub_key}'.")
 
-        for cid in clothing_ids:
-            if not clothing_queries.exists_for_user(session, user_id, cid):
-                raise OutfitClothingIDInvalidError(
-                    f"Clothing ID {cid} invalid or not owned by user."
-                )
-
-        validated_items = []
-        clothing_canvas: list[CanvasPlacement] = []
-
-        for item in scene:
-            clothing_id = item["clothing_id"]
-            image_id = clothing_manager.get_image_id_by_clothing_id(
-                user_id=user_id,
-                clothing_id=clothing_id,
-            )
-
-            validated_items.append({"item": item, "image_id": image_id})
-
-            clothing_canvas.append(
-                CanvasPlacement(
-                    clothing_id=clothing_id,
-                    x=item["x"],
-                    y=item["y"],
-                    z=item["z"],
-                    scale=item["scale"],
-                    rotation=item["rotation"],
-                )
-            )
+        validated_items, clothing_canvas = self._resolve_scene_items(
+            session, user_id, scene
+        )
 
         generate_outfit_preview(outfit_id=outfit_id, items=validated_items)
 
