@@ -65,6 +65,20 @@ class OutfitClothingRow(BaseModel):
     rotation: Decimal
 
 
+class OutfitClothingLinkRow(BaseModel):
+    """A canvas placement carrying the outfit it belongs to, used for batched fetches."""
+
+    model_config = ConfigDict(frozen=True)
+
+    outfit_id: str
+    clothing_id: str
+    position_x: Decimal
+    position_y: Decimal
+    z_index: int
+    scale: Decimal
+    rotation: Decimal
+
+
 class OutfitCountRow(BaseModel):
     model_config = ConfigDict(frozen=True)
 
