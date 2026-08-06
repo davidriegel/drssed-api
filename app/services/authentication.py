@@ -12,6 +12,7 @@ from urllib.parse import urljoin
 import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
+from sqlspec.exceptions import UniqueViolationError
 
 from app.core.database import get_session
 from app.core.email import send_password_reset_email, send_verification_email
@@ -514,7 +515,12 @@ class AuthenticationManager:
             preferred_language=preferred_language,
         )
 
-        user_queries.create(user)
+        try:
+            user_queries.create(user)
+        except UniqueViolationError as e:
+            raise ConflictError(
+                field="username" if "uq_users_username" in str(e) else "email"
+            )
 
         return user_id
 
