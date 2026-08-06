@@ -21,7 +21,7 @@ def _mysql_health() -> dict:
         return {"status": "ok" if ok else "error"}
     except Exception as e:
         logger.error(f"MySQL health check failed: {e}")
-        return {"status": "error", "error": str(e)}
+        return {"status": "error"}
 
 
 @health.route("/live", methods=["GET"])
