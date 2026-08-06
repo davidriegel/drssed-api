@@ -475,7 +475,7 @@ def update_fields(session, wear_id: str, fields: dict) -> None:
 
 
 def soft_delete_for_user(session, user_id: str, wear_id: str) -> bool:
-    """Marks a wear entry as deleted for a given user. Returns success or failure."""
+    """Marks a wear entry as deleted for a given user. Returns whether a row matched."""
     result = session.execute(
         """
         UPDATE outfit_wears
@@ -485,7 +485,7 @@ def soft_delete_for_user(session, user_id: str, wear_id: str) -> bool:
         {"wear_id": wear_id, "user_id": user_id},
     )
 
-    return result.is_success()
+    return result.rows_affected > 0
 
 
 def soft_delete_for_outfit(session, user_id: str, outfit_id: str) -> bool:
