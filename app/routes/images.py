@@ -13,7 +13,7 @@ from app.utils.middleware.authentication import authorize_request
 images = Blueprint("images", __name__)
 
 REDIS_URI = os.getenv("REDIS_URI", "redis://localhost:6379")
-_redis = Redis.from_url(REDIS_URI)
+_redis = Redis.from_url(REDIS_URI, socket_connect_timeout=2, socket_timeout=5)
 _image_queue = Queue("images", connection=_redis)
 
 

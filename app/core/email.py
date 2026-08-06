@@ -13,6 +13,7 @@ from typing import Optional, Union
 import resend
 from flask import current_app, render_template
 from resend import Attachment, RemoteAttachment, Tag
+from resend.http_client_requests import RequestsClient
 
 from app.core.logging import get_logger
 
@@ -31,8 +32,11 @@ DEFAULT_LOCALE = "en"
 if EMAIL_ENABLED and not RESEND_API_KEY:
     raise RuntimeError("⚠️ RESEND_API_KEY must be set when EMAIL_ENABLED is true")
 
+RESEND_TIMEOUT_SECONDS = 10
+
 if EMAIL_ENABLED:
     resend.api_key = RESEND_API_KEY
+    resend.default_http_client = RequestsClient(timeout=RESEND_TIMEOUT_SECONDS)
 
 
 class EmailSendError(Exception):
