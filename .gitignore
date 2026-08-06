@@ -27,3 +27,6 @@ dump.rdb
 # IDE
 .vscode/
 .idea/
+
+# Raw uploads
+app/uploads/

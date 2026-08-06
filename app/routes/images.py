@@ -47,7 +47,7 @@ def generate_image():
 
     ext = os.path.splitext(file.filename)[1].lower()
     raw_id = str(uuid.uuid4())
-    raw_path = f"app/static/temp/process/{raw_id}{ext}"
+    raw_path = f"app/uploads/{raw_id}{ext}"
     with open(raw_path, "wb") as f:
         f.write(raw)
 
