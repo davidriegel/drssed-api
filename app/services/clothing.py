@@ -391,11 +391,6 @@ class ClothingManager:
 
         return self.get_clothing_by_id(user_id, clothing_id)
 
-    def get_image_id_by_clothing_id(self, user_id: str, clothing_id: str) -> str:
-        """Returns the image_id for a clothing item owned by the user."""
-        clothing = self.get_clothing_by_id(user_id, clothing_id)
-        return clothing.image_id
-
     def soft_delete_clothing_by_id(self, user_id: str, clothing_id: str) -> None:
         try:
             with get_session() as session:

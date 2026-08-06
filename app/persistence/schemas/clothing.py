@@ -33,6 +33,15 @@ class ClothingImageIdRow(BaseModel):
     image_id: str
 
 
+class ClothingImageRow(BaseModel):
+    """An image ID carrying the clothing item it belongs to, used for batched fetches."""
+
+    model_config = ConfigDict(frozen=True)
+
+    clothing_id: str
+    image_id: str
+
+
 class ClothingSeasonRow(BaseModel):
     model_config = ConfigDict(frozen=True)
 
