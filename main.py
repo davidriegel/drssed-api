@@ -46,6 +46,9 @@ all_jobs = [*create_cleanup_jobs()]
 
 
 def prepare_api():
+    # Leaves room for multipart overhead on top of the 4MB image upload limit.
+    api.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
+
     limiter.init_app(api)
 
     init_request_logging(api)
