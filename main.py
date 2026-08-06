@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from flask import Flask, jsonify
-from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.exceptions import HTTPException
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app.core.limiter import limiter
 from app.core.logging import get_logger, setup_logging
