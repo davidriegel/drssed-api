@@ -91,6 +91,10 @@ try:
     limiter = Limiter(
         key_func=get_remote_address,
         storage_uri=REDIS_URI,
+        storage_options={
+            "socket_connect_timeout": 2,
+            "socket_timeout": 2,
+        },
         on_breach=rateLimitResponse,
         enabled=True
         if getenv("RATELIMITER_ENABLED", "True").lower() == "true"

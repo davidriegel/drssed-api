@@ -22,6 +22,11 @@ def _get_required_env(key: str) -> str:
     return value
 
 
+CONNECT_TIMEOUT_SECONDS = 5
+# Stays well under the Gunicorn worker timeout so a stalled query frees the
+# thread instead of taking the worker down with it.
+STATEMENT_TIMEOUT_SECONDS = 60
+
 spec = SQLSpec()
 
 db = spec.add_config(
@@ -34,6 +39,9 @@ db = spec.add_config(
             "database": _get_required_env("DATABASE_NAME"),
             "charset": "utf8mb4",
             "autocommit": False,
+            "connect_timeout": CONNECT_TIMEOUT_SECONDS,
+            "read_timeout": STATEMENT_TIMEOUT_SECONDS,
+            "write_timeout": STATEMENT_TIMEOUT_SECONDS,
         },
         migration_config={
             "script_location": "migrations",
