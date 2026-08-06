@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from flask import Flask, jsonify
+from werkzeug.exceptions import HTTPException
 
 from app.core.limiter import limiter
 from app.core.logging import get_logger, setup_logging
@@ -113,6 +114,18 @@ def unprocessable_error_handler(error):
     )
 
     return jsonify({"error": str(error)}), 422
+
+
+@api.errorhandler(HTTPException)
+def http_error_handler(error):
+    logger.warning(
+        f"HTTP error {error.code}: {error.name}", extra=helper.get_request_context()
+    )
+
+    if error.response is not None:
+        return error.response
+
+    return jsonify({"error": error.description}), error.code
 
 
 @api.errorhandler(Exception)
