@@ -7,9 +7,11 @@ from typing import Optional
 from argon2 import PasswordHasher
 from sqlspec.exceptions import UniqueViolationError
 
+from app.core.database import get_session
 from app.core.logging import get_logger
 from app.persistence.queries import user as user_queries
 from app.persistence.schemas import user as user_schemas
+from app.services.cleanup import delete_user_and_files
 from app.utils.exceptions import (
     ConflictError,
     NotFoundError,
@@ -106,7 +108,8 @@ class UserManager:
         return user
 
     def delete_account_by_id(self, user_id: str) -> None:
-        user_queries.delete_by_id(user_id)
+        with get_session() as session:
+            delete_user_and_files(session, user_id)
 
 
 user_manager = UserManager()
