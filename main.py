@@ -33,10 +33,10 @@ from app.utils.helpers import helper
 from app.utils.middleware.extract_language import init_language_extraction
 from app.utils.middleware.request_logger import init_request_logging
 
+# No built-in static route: every image goes through the authenticated blueprint.
 api = Flask(
     "Drssed API",
-    static_folder="app/static",
-    static_url_path="/static",
+    static_folder=None,
     template_folder="app/templates",
 )
 

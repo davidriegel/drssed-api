@@ -11,7 +11,6 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from apscheduler.triggers.cron import CronTrigger
-from flask import current_app
 
 from app.core.database import get_session
 from app.core.logging import get_logger
@@ -34,6 +33,7 @@ TEMP_FILE_MAX_AGE_HOURS = 24
 GUEST_CLEANUP_LOCK = "drssed_cleanup_job"
 ORPHAN_CLEANUP_LOCK = "drssed_orphan_cleanup_job"
 
+STATIC_ROOT = "app/static"
 PROFILE_PICTURE_SUBDIR = "profile_pictures"
 CLOTHING_SUBDIR = "clothing_images"
 OUTFIT_SUBDIR = "outfit_collages"
@@ -42,10 +42,7 @@ UPLOAD_DIR = "app/uploads"
 
 
 def _get_static_folder() -> Path:
-    folder = current_app.static_folder
-    if not folder:
-        raise RuntimeError("Flask static_folder is not configured")
-    return Path(folder)
+    return Path(STATIC_ROOT)
 
 
 # === Job: Guest cleanup ===
