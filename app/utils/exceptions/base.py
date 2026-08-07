@@ -1,30 +1,34 @@
-class ValidationError(Exception):
+class DomainError(Exception):
+    """Base for errors that describe a rejected request rather than a failure."""
+
+
+class ValidationError(DomainError):
     def __init__(self, message="Validation failed"):
         super().__init__(message)
 
 
-class NotFoundError(Exception):
+class NotFoundError(DomainError):
     def __init__(self, message="Resource not found"):
         super().__init__(message)
 
 
-class ConflictError(Exception):
+class ConflictError(DomainError):
     def __init__(self, message="Resource already exists", field=None):
         super().__init__(message)
         self.field = field
 
 
-class PermissionError(Exception):
+class PermissionError(DomainError):
     def __init__(self, message="Permission denied"):
         super().__init__(message)
 
 
-class UnauthorizedError(Exception):
+class UnauthorizedError(DomainError):
     def __init__(self, message="Invalid credentials"):
         super().__init__(message)
 
 
-class UnprocessableEntityError(Exception):
+class UnprocessableEntityError(DomainError):
     def __init__(self, message="Unprocessable request") -> None:
         super().__init__(message)
 
