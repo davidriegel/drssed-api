@@ -19,9 +19,7 @@ from app.utils.exceptions.base import (
 from app.utils.exceptions.clothing import (
     ClothingColorMissingError,
     ClothingIDMissingError,
-    ClothingImageInvalidError,
     ClothingImageMissingError,
-    ClothingNameMissingError,
     ClothingNameTooLongError,
     ClothingNameTooShortError,
     ClothingSubCategoryMissingError,
@@ -31,7 +29,6 @@ from app.utils.exceptions.clothing import (
 )
 from app.utils.exceptions.outfits import (
     OutfitClothingIDInvalidError,
-    OutfitClothingIDsMissingError,
     OutfitFavoriteMissingError,
     OutfitIDMissingError,
     OutfitLimitInvalidError,
@@ -39,11 +36,9 @@ from app.utils.exceptions.outfits import (
     OutfitNameTooLongError,
     OutfitNameTooShortError,
     OutfitOffsetInvalidError,
-    OutfitPreviewInvalidError,
     OutfitPublicMissingError,
     OutfitSceneInvalidError,
     OutfitSceneMissingError,
-    OutfitSeasonsInvalidError,
     OutfitTagsInvalidError,
 )
 from app.utils.exceptions.user import (
@@ -61,9 +56,7 @@ from app.utils.exceptions.user import (
     UsernameTooShortError,
 )
 from app.utils.exceptions.validation import (
-    FileTooLargeError,
     ImageUnclearError,
-    UnsupportedFileTypeError,
 )
 from app.utils.exceptions.wear import (
     WearAlreadyLoggedError,
@@ -93,27 +86,21 @@ __all__ = [
     "ClothingValidationError",
     "ClothingNotFoundError",
     "ClothingConflictError",
-    "UnsupportedFileTypeError",
-    "FileTooLargeError",
     "ImageUnclearError",
-    "ClothingNameMissingError",
     "ClothingSubCategoryMissingError",
     "ClothingColorMissingError",
     "ClothingIDMissingError",
     "ClothingImageMissingError",
     "ClothingNameTooShortError",
     "ClothingNameTooLongError",
-    "ClothingImageInvalidError",
     "SeasonsInvalidError",
     "ClothingTagsInvalidError",
     "ClothingWarmthLevelInvalidError",
     "OutfitValidationError",
     "OutfitNotFoundError",
     "OutfitIDMissingError",
-    "OutfitClothingIDsMissingError",
     "OutfitNameMissingError",
     "OutfitClothingIDInvalidError",
-    "OutfitSeasonsInvalidError",
     "OutfitTagsInvalidError",
     "OutfitLimitInvalidError",
     "OutfitOffsetInvalidError",
@@ -123,7 +110,6 @@ __all__ = [
     "OutfitFavoriteMissingError",
     "OutfitSceneMissingError",
     "OutfitSceneInvalidError",
-    "OutfitPreviewInvalidError",
     "WearValidationError",
     "WearNotFoundError",
     "WearAlreadyLoggedError",

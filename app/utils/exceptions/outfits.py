@@ -6,11 +6,6 @@ class OutfitIDMissingError(OutfitValidationError):
         super().__init__(message)
 
 
-class OutfitClothingIDsMissingError(OutfitValidationError):
-    def __init__(self, message="Outfit clothing ID(s) are missing"):
-        super().__init__(message)
-
-
 class OutfitNameMissingError(OutfitValidationError):
     def __init__(self, message="Outfit name is missing"):
         super().__init__(message)
@@ -18,11 +13,6 @@ class OutfitNameMissingError(OutfitValidationError):
 
 class OutfitClothingIDInvalidError(OutfitValidationError):
     def __init__(self, message="Outfit clothing ID is invalid"):
-        super().__init__(message)
-
-
-class OutfitSeasonsInvalidError(OutfitValidationError):
-    def __init__(self, message="Outfit seasons are invalid"):
         super().__init__(message)
 
 
@@ -68,9 +58,4 @@ class OutfitSceneMissingError(OutfitValidationError):
 
 class OutfitSceneInvalidError(OutfitValidationError):
     def __init__(self, message="Outfit scene is invalid."):
-        super().__init__(message)
-
-
-class OutfitPreviewInvalidError(OutfitValidationError):
-    def __init__(self, message="Outfit preview is invalid."):
         super().__init__(message)
