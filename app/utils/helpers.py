@@ -1,31 +1,15 @@
 __all__ = ["helper"]
 
 from datetime import datetime, timezone
-from decimal import Decimal
-from typing import Any, Sequence, cast
 
 from flask import g, has_request_context, request
 
 from app.core.logging import get_logger
 
-from ..models.outfit import CanvasPlacement
-
 logger = get_logger()
 
 
 class HelperFunctions:
-    @staticmethod
-    def ensure_dict(result: Any) -> dict:
-        """
-        :param result: The object to check
-        :return: Result as dictionary
-        :raises TypeError: If result is not a dictionary
-        """
-        if not isinstance(result, dict):
-            raise TypeError(f"Expected a dictionary, but got {type(result).__name__}")
-
-        return result
-
     @staticmethod
     def build_paginated_response(items, limit, offset, total):
         """
@@ -55,17 +39,6 @@ class HelperFunctions:
             context["user_id"] = g.user_id
 
         return context
-
-    def _parse_canvas_row(self, row: Sequence) -> CanvasPlacement:
-        clothing_id, x, y, z, scale, rotation = row
-        return CanvasPlacement(
-            clothing_id=cast(str, clothing_id),
-            x=float(cast(Decimal, x)),
-            y=float(cast(Decimal, y)),
-            z=int(cast(Decimal, z)),
-            scale=float(cast(Decimal, scale)),
-            rotation=float(cast(Decimal, rotation)),
-        )
 
 
 helper = HelperFunctions()

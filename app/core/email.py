@@ -6,14 +6,12 @@ __all__ = [
     "EmailSendError",
 ]
 
-import base64
 from datetime import datetime
 from os import getenv
-from pathlib import Path
 from typing import Optional, Union
 
 import resend
-from flask import current_app, render_template
+from flask import render_template
 from redis import Redis
 from resend import Attachment, RemoteAttachment, Tag
 from resend.http_client_requests import RequestsClient
@@ -274,40 +272,3 @@ def send_password_reset_email(
         text=text,
         tags=[{"name": "category", "value": "password_reset"}],
     )
-
-
-def _build_logo_attachment() -> Attachment:
-    """
-    Load the Drssed logo from static/emails/logo.png and return a
-    Resend-compatible inline attachment dict.
-
-    The content_id "logo" matches the cid:logo reference in HTML templates.
-    """
-    logo_path = _get_static_folder() / "emails" / "logo.png"
-
-    with open(logo_path, "rb") as f:
-        logo_bytes = f.read()
-
-    return {
-        "filename": "logo.png",
-        "content": base64.b64encode(logo_bytes).decode(),
-        "content_id": "logo",
-    }
-
-
-def _get_static_folder() -> Path:
-    folder = current_app.static_folder
-
-    if not folder:
-        raise RuntimeError("⚠️ Flask static_folder is not configured")
-
-    return Path(folder)
-
-
-def _get_templates_folder() -> str:
-    folder = current_app.template_folder
-
-    if not folder:
-        raise RuntimeError("⚠️ Flask template_folder is not configured")
-
-    return str(folder)

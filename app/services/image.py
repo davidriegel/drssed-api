@@ -1,6 +1,5 @@
 __all__ = [
     "move_preview_image_to_permanent",
-    "save_outfit_preview",
     "load_clothing_image_by_id",
     "generate_outfit_preview",
     "delete_outfit_preview",
@@ -12,7 +11,6 @@ import os
 from urllib.parse import urljoin
 
 from PIL import Image
-from werkzeug.datastructures import FileStorage
 
 from app.core.logging import get_logger
 
@@ -45,35 +43,6 @@ def move_preview_image_to_permanent(
     except Exception as e:
         logger.error(f"An unexpected error occurred while moving the image: {e}")
         raise
-
-
-def save_outfit_preview(outfit_id: str, preview_file: FileStorage) -> str:
-    """
-    Returns: public_url
-    """
-    mimetype = (preview_file.mimetype or "").lower()
-    if mimetype not in ("image/png", "image/webp", "image/jpeg", "image/jpg"):
-        raise ValueError("Invalid preview mimetype. Must be png/webp/jpeg.")
-
-    preview_file.stream.seek(0)
-    img = Image.open(preview_file.stream).convert("RGBA")
-
-    img.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
-
-    alpha = img.getchannel("A")
-    bbox = alpha.getbbox()
-    if bbox:
-        img = img.crop(bbox)
-
-    path = f"app/static/outfit_collages/{outfit_id}.webp"
-    img.save(path, "WEBP")
-
-    return str(
-        urljoin(
-            os.getenv("API_BASE_URL", ""),
-            f"static/outfit_collages/{outfit_id}.webp",
-        )
-    )
 
 
 def load_clothing_image_by_id(image_id: str) -> Image.Image:

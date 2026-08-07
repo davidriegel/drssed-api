@@ -28,7 +28,6 @@ def delete_clothing_piece(clothing_id: str):
 @limiter.limit("60 per minute")
 @authorize_request
 def patch_clothing_piece(clothing_id: str):
-    request.headers["Authorization"]
     data = request.get_json()
 
     # NOTE: Default to private entries until social features implemented
