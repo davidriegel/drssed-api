@@ -33,7 +33,7 @@ _TAXONOMY_ETAG = hashlib.sha256(
 
 @taxonomy.route("", methods=["GET"])
 @taxonomy.route("/", methods=["GET"])
-@limiter.limit("30 per minute")
+@limiter.limit("120 per minute")
 def get_taxonomy():
     response = jsonify(_TAXONOMY)
     response.set_etag(_TAXONOMY_ETAG)
