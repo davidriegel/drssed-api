@@ -9,7 +9,7 @@ static = Blueprint("static", __name__)
 
 @static.route("/clothing_images/<clothing_id>.webp", methods=["GET"])
 @static.route("/clothing_images/<clothing_id>", methods=["GET"])
-@limiter.limit("10 per minute")
+@limiter.limit("300 per minute")
 @authorize_request
 def getClothingImage(clothing_id):
     try:
@@ -19,7 +19,7 @@ def getClothingImage(clothing_id):
 
 
 @static.route("/temp/<filename>", methods=["GET"])
-@limiter.limit("2 per minute")
+@limiter.limit("120 per minute")
 @authorize_request
 def getTempImage(filename):
     if not filename:
@@ -36,7 +36,7 @@ def getTempImage(filename):
 
 
 @static.route("/outfit_images/<filename>", methods=["GET"])
-@limiter.limit("10 per minute")
+@limiter.limit("300 per minute")
 @authorize_request
 def get_outfit_image(filename):
     filename = (

@@ -1,3 +1,4 @@
+from math import ceil
 from os import getenv
 from time import perf_counter, sleep, time
 
@@ -16,8 +17,9 @@ HEALTH_CHECK_TIMEOUT = 2.0
 
 def rateLimitResponse(rateLimit: RequestLimit):
     reset_in_seconds = rateLimit.reset_at - time()
+    retry_after = max(1, ceil(reset_in_seconds))
 
-    return make_response(
+    response = make_response(
         jsonify(
             {
                 "error": f"Rate limit exceeded and will reset in {reset_in_seconds:.0f} seconds."
@@ -25,6 +27,9 @@ def rateLimitResponse(rateLimit: RequestLimit):
         ),
         429,
     )
+    response.headers["Retry-After"] = str(retry_after)
+
+    return response
 
 
 def checkRedisConnection(limiter: Limiter):
