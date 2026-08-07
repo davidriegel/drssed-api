@@ -24,7 +24,7 @@ def _build_temp_url(image_id: str) -> str:
 
 
 @images.route("/preview", methods=["POST"])
-@limiter.limit("1 per minute")
+@limiter.limit("20 per minute")
 @authorize_request
 def generate_image():
     if "file" not in request.files:
@@ -63,7 +63,7 @@ def generate_image():
 
 
 @images.route("/preview/<job_id>", methods=["GET"])
-@limiter.limit("30 per minute")
+@limiter.limit("120 per minute")
 @authorize_request
 def get_preview_status(job_id: str):
     try:

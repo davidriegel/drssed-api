@@ -53,7 +53,7 @@ def upgrade_guest() -> ResponseReturnValue:
 
 
 @users.route("/me/clothing/sync", methods=["GET"])
-@limiter.limit("5 per minute")
+@limiter.limit("30 per minute")
 @authorize_request
 def sync_my_clothes():
     updated_since_param = request.args.get("updated_since")
@@ -82,7 +82,7 @@ def sync_my_clothes():
 
 
 @users.route("/me/outfits/sync", methods=["GET"])
-@limiter.limit("5 per minute")
+@limiter.limit("30 per minute")
 @authorize_request
 def sync_my_outfits():
     updated_since_param = request.args.get("updated_since")
@@ -111,7 +111,7 @@ def sync_my_outfits():
 
 
 @users.route("/me/outfit-wears/sync", methods=["GET"])
-@limiter.limit("5 per minute")
+@limiter.limit("30 per minute")
 @authorize_request
 def sync_my_outfit_wears():
     updated_since_param = request.args.get("updated_since")
@@ -140,7 +140,7 @@ def sync_my_outfit_wears():
 
 
 @users.route("/me/outfit-wears/stats", methods=["GET"])
-@limiter.limit("10 per minute")
+@limiter.limit("60 per minute")
 @authorize_request
 def get_my_outfit_wear_stats() -> ResponseReturnValue:
     stats = wear_manager.get_stats(
@@ -154,7 +154,7 @@ def get_my_outfit_wear_stats() -> ResponseReturnValue:
 
 
 @users.route("/me/outfit-wears", methods=["GET"])
-@limiter.limit("10 per minute")
+@limiter.limit("60 per minute")
 @authorize_request
 def get_my_outfit_wears() -> ResponseReturnValue:
     limit = request.args.get("limit", 50, type=int)
@@ -176,7 +176,7 @@ def get_my_outfit_wears() -> ResponseReturnValue:
 
 
 @users.route("/me/clothing/wear-stats", methods=["GET"])
-@limiter.limit("10 per minute")
+@limiter.limit("60 per minute")
 @authorize_request
 def get_my_clothing_wear_stats() -> ResponseReturnValue:
     limit = request.args.get("limit", 50, type=int)
@@ -200,7 +200,7 @@ def get_my_clothing_wear_stats() -> ResponseReturnValue:
 
 
 @users.route("/<user_id>/outfits", methods=["GET"])
-@limiter.limit("5 per minute")
+@limiter.limit("60 per minute")
 @authorize_request
 def get_outfit_list(user_id: str):
     limit = request.args.get("limit", 50, type=int)
@@ -217,7 +217,7 @@ def get_outfit_list(user_id: str):
 
 
 @users.route("/me/outfits", methods=["GET"])
-@limiter.limit("5 per minute")
+@limiter.limit("60 per minute")
 @authorize_request
 def get_outfit_list_private():
     limit = request.args.get("limit", 50, type=int)
@@ -234,7 +234,7 @@ def get_outfit_list_private():
 
 
 @users.route("/me/outfits", methods=["POST"])
-@limiter.limit("5 per minute")
+@limiter.limit("60 per minute")
 @authorize_request
 def create_outfit():
     data = request.get_json()
@@ -256,7 +256,7 @@ def create_outfit():
 
 
 @users.route("/<user_id>/clothing", methods=["GET"])
-@limiter.limit("5 per minute")
+@limiter.limit("60 per minute")
 @authorize_request
 def get_clothing_list(user_id: str):
     limit = request.args.get("limit", 50, type=int)
@@ -285,7 +285,7 @@ def get_clothing_list(user_id: str):
 
 
 @users.route("/me/clothing", methods=["GET"])
-@limiter.limit("5 per minute")
+@limiter.limit("60 per minute")
 @authorize_request
 def get_clothing_list_private() -> ResponseReturnValue:
     limit = request.args.get("limit", 50, type=int)
@@ -318,7 +318,7 @@ def get_clothing_list_private() -> ResponseReturnValue:
 
 
 @users.route("/me/clothing", methods=["POST"])
-@limiter.limit("5 per minute")
+@limiter.limit("60 per minute")
 @authorize_request
 def create_clothing_piece():
     data = request.get_json()
@@ -432,7 +432,7 @@ def delete_account():
 
 @users.route("/me", methods=["GET"])
 @authorize_request
-@limiter.limit("3 per minute")
+@limiter.limit("60 per minute")
 def get_current_user():
     user = user_manager.get_private_user_profile_by_id(g.user_id)
     return jsonify({"user": user.model_dump(mode="json")}), 200
