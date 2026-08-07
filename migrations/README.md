@@ -56,3 +56,16 @@ The timestamp is automatically generated in UTC timezone.
 Migrations are applied in chronological order based on their timestamps.
 The database tracks both version and execution order separately to handle
 out-of-order migrations gracefully (e.g., from late-merging branches).
+
+## Scheduled Events
+
+`20260807143052_add_hard_delete_events.sql` purges soft-deleted clothing and
+outfits after 7 days. Two things depend on that window:
+
+- The MySQL event scheduler must be on (`--event-scheduler=ON`, set in both
+  compose files). Without it the rows accumulate silently.
+- The iOS client learns about deletions from `deleted` in the sync response, and
+  a purged row no longer appears there. It falls back to a full, authoritative
+  sync once its cursor is older than 7 days (`SyncManager.shouldPerformFullSync`),
+  which is what keeps the two in step. Shortening the window here without
+  shortening it there would leave clients with items the server has forgotten.

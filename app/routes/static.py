@@ -9,7 +9,7 @@ logger = get_logger()
 
 @static.route("/clothing_images/<clothing_id>.webp", methods=["GET"])
 @static.route("/clothing_images/<clothing_id>", methods=["GET"])
-@limiter.limit("10 per minute")
+@limiter.limit("300 per minute")
 def getClothingImage(clothing_id):
     try:
         return send_from_directory("app/static/clothing_images", f"{clothing_id}.webp")
@@ -19,7 +19,7 @@ def getClothingImage(clothing_id):
 
 
 @static.route("/temp/<filename>", methods=["GET"])
-@limiter.limit("2 per minute")
+@limiter.limit("120 per minute")
 def getTempImage(filename):
     if not filename:
         return jsonify({"error": "Filename is required"}), 400
@@ -36,7 +36,7 @@ def getTempImage(filename):
 
 
 @static.route("/outfit_images/<filename>", methods=["GET"])
-@limiter.limit("10 per minute")
+@limiter.limit("300 per minute")
 def get_outfit_image(filename):
     filename = (
         filename.strip() + ".webp" if not filename.endswith(".webp") else filename

@@ -330,7 +330,7 @@ def update_fields(session, clothing_id: str, fields: dict) -> None:
         if key == "sub_category":
             if (
                 not isinstance(value, str)
-                and value.upper() not in ClothingSubCategory.__members__
+                or value.upper() not in ClothingSubCategory.__members__
             ):
                 raise ValueError(f"Invalid sub category: {value}")
 

@@ -51,7 +51,9 @@ def load_clothing_image_by_id(image_id: str) -> Image.Image:
     if not os.path.exists(image_path):
         raise FileNotFoundError("Image file missing")
 
-    return Image.open(image_path)
+    # WEBP drops the alpha channel when nothing is transparent, and the collage
+    # pastes every item using itself as the mask.
+    return Image.open(image_path).convert("RGBA")
 
 
 def generate_outfit_preview(outfit_id: str, items: list[dict]) -> str:

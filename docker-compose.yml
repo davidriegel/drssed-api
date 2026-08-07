@@ -119,6 +119,24 @@ services:
         max-size: "10m"
         max-file: "5"
 
+  email-worker:
+    image: ghcr.io/davidriegel/drssed-api:latest
+    container_name: email-worker
+    command: [ "email-worker" ]
+    env_file: .env
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - backend
+    logging: *default-logging
+
 networks:
   backend:
     driver: bridge

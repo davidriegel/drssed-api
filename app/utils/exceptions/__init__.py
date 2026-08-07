@@ -3,6 +3,7 @@ from app.utils.exceptions.base import (
     ClothingNotFoundError,
     ClothingValidationError,
     ConflictError,
+    DomainError,
     NotFoundError,
     OutfitNotFoundError,
     OutfitPermissionError,
@@ -76,6 +77,7 @@ from app.utils.exceptions.wear import (
 )
 
 __all__ = [
+    "DomainError",
     "ValidationError",
     "NotFoundError",
     "ConflictError",

@@ -2,11 +2,15 @@ __all__ = ["get_logger"]
 
 import json
 import logging
-import os
 import time
 from datetime import datetime
-from logging.handlers import RotatingFileHandler
 from os import getenv
+
+_RESERVED_RECORD_KEYS = set(logging.makeLogRecord({}).__dict__) | {
+    "message",
+    "asctime",
+    "taskName",
+}
 
 
 class JsonFormatter(logging.Formatter):
@@ -19,34 +23,14 @@ class JsonFormatter(logging.Formatter):
             "message": record.getMessage(),
         }
 
-        user_id = getattr(record, "user_id", None)
-        if user_id is not None:
-            log_data["user_id"] = user_id
-
-        endpoint = getattr(record, "endpoint", None)
-        if endpoint:
-            log_data["endpoint"] = endpoint
-
-        method = getattr(record, "method", None)
-        if method:
-            log_data["method"] = method
-
-        status_code = getattr(record, "status_code", None)
-        if status_code:
-            log_data["status_code"] = status_code
-
-        duration_ms = getattr(record, "duration_ms", None)
-        if duration_ms is not None:
-            log_data["duration_ms"] = duration_ms
-
-        ip = getattr(record, "ip", None)
-        if ip:
-            log_data["ip"] = ip
+        for key, value in record.__dict__.items():
+            if key not in _RESERVED_RECORD_KEYS:
+                log_data[key] = value
 
         if record.exc_info:
             log_data["exception"] = self.formatException(record.exc_info)
 
-        return json.dumps(log_data)
+        return json.dumps(log_data, default=str)
 
 
 class ConsoleFormatter(logging.Formatter):
@@ -74,26 +58,11 @@ class ConsoleFormatter(logging.Formatter):
 
         message = record.getMessage()
 
-        extras = []
-        user_id = getattr(record, "user_id", None)
-        if user_id is not None:
-            extras.append(f"user={user_id}")
-
-        endpoint = getattr(record, "endpoint", None)
-        if endpoint:
-            extras.append(f"endpoint={endpoint}")
-
-        method = getattr(record, "method", None)
-        if method:
-            extras.append(f"method={method}")
-
-        status_code = getattr(record, "status_code", None)
-        if status_code:
-            extras.append(f"status={status_code}")
-
-        duration_ms = getattr(record, "duration_ms", None)
-        if duration_ms:
-            extras.append(f"duration={duration_ms}")
+        extras = [
+            f"{key}={value}"
+            for key, value in record.__dict__.items()
+            if key not in _RESERVED_RECORD_KEYS and value is not None
+        ]
 
         extra_str = f" | {' | '.join(extras)}" if extras else ""
 
@@ -140,28 +109,6 @@ class Logger:
             console_handler.setLevel(level)
 
         cls._logger.addHandler(console_handler)
-
-        if is_production:
-            log_dir = "logs"
-            os.makedirs(log_dir, exist_ok=True)
-
-            file_handler = RotatingFileHandler(
-                f"{log_dir}/drssed-api.log",
-                maxBytes=10 * 1024 * 1024,  # 10MB
-                backupCount=10,
-            )
-            file_handler.setFormatter(JsonFormatter())
-            file_handler.setLevel(log_level)
-            cls._logger.addHandler(file_handler)
-
-            error_handler = RotatingFileHandler(
-                f"{log_dir}/drssed-errors.log",
-                maxBytes=5 * 1024 * 1024,  # 5MB
-                backupCount=5,
-            )
-            error_handler.setFormatter(JsonFormatter())
-            error_handler.setLevel(logging.ERROR)
-            cls._logger.addHandler(error_handler)
 
         logging.getLogger("werkzeug").setLevel(logging.WARNING)
 

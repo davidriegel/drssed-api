@@ -478,16 +478,16 @@ class AuthenticationManager:
 
             profile_picture = f"default/{profile_picture}"
 
-            if isinstance(email, str):
-                email = email.strip().lower()
+        if isinstance(email, str):
+            email = email.strip().lower()
 
-                if not re.match(r"^[^@]+@[^@]+\.[^@]+$", email):
-                    raise ValidationError
+            if not re.match(r"^[^@]+@[^@]+\.[^@]+$", email):
+                raise ValidationError
 
-                if user_queries.email_exists(email):
-                    raise ConflictError(field="email")
-            else:
-                email = None
+            if user_queries.email_exists(email):
+                raise ConflictError(field="email")
+        else:
+            email = None
 
         if isinstance(username, str):
             username = username.strip().lower()

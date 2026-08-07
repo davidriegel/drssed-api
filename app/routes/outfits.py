@@ -15,7 +15,7 @@ outfits = Blueprint("outfits", __name__)
 
 
 @outfits.route("/<outfit_id>", methods=["GET"])
-@limiter.limit("5 per minute")
+@limiter.limit("60 per minute")
 @authorize_request
 def get_outfit(outfit_id: str):
     outfit = outfit_manager.get_outfit_by_id(g.user_id, outfit_id)
@@ -24,7 +24,7 @@ def get_outfit(outfit_id: str):
 
 
 @outfits.route("/<outfit_id>", methods=["DELETE"])
-@limiter.limit("5 per minute")
+@limiter.limit("60 per minute")
 @authorize_request
 def delete_outfit(outfit_id: str):
     outfit_manager.soft_delete_outfit_by_id(g.user_id, outfit_id)
@@ -33,7 +33,7 @@ def delete_outfit(outfit_id: str):
 
 
 @outfits.route("/<outfit_id>", methods=["PATCH"])
-@limiter.limit("3 per minute")
+@limiter.limit("60 per minute")
 @authorize_request
 def patch_outfit(outfit_id: str):
     data: dict = request.get_json()
@@ -63,7 +63,7 @@ def patch_outfit(outfit_id: str):
 
 
 @outfits.route("/<outfit_id>/wears", methods=["POST"])
-@limiter.limit("10 per minute")
+@limiter.limit("60 per minute")
 @authorize_request
 def log_outfit_wear(outfit_id: str) -> ResponseReturnValue:
     data: dict = request.get_json(silent=True) or {}
@@ -84,7 +84,7 @@ def log_outfit_wear(outfit_id: str) -> ResponseReturnValue:
 
 
 @outfits.route("/<outfit_id>/wears", methods=["GET"])
-@limiter.limit("10 per minute")
+@limiter.limit("60 per minute")
 @authorize_request
 def get_outfit_wears(outfit_id: str) -> ResponseReturnValue:
     limit = request.args.get("limit", 50, type=int)
@@ -101,7 +101,7 @@ def get_outfit_wears(outfit_id: str) -> ResponseReturnValue:
 
 
 @outfits.route("/wears/<wear_id>", methods=["GET"])
-@limiter.limit("10 per minute")
+@limiter.limit("60 per minute")
 @authorize_request
 def get_outfit_wear(wear_id: str) -> ResponseReturnValue:
     wear = wear_manager.get_wear_by_id(g.user_id, wear_id)
@@ -110,7 +110,7 @@ def get_outfit_wear(wear_id: str) -> ResponseReturnValue:
 
 
 @outfits.route("/wears/<wear_id>", methods=["PATCH"])
-@limiter.limit("10 per minute")
+@limiter.limit("60 per minute")
 @authorize_request
 def patch_outfit_wear(wear_id: str) -> ResponseReturnValue:
     data: dict = request.get_json(silent=True) or {}
@@ -121,7 +121,7 @@ def patch_outfit_wear(wear_id: str) -> ResponseReturnValue:
 
 
 @outfits.route("/wears/<wear_id>", methods=["DELETE"])
-@limiter.limit("10 per minute")
+@limiter.limit("60 per minute")
 @authorize_request
 def delete_outfit_wear(wear_id: str) -> ResponseReturnValue:
     wear_manager.delete_wear(g.user_id, wear_id)
@@ -130,7 +130,7 @@ def delete_outfit_wear(wear_id: str) -> ResponseReturnValue:
 
 
 @outfits.route("/recommend", methods=["POST"])
-@limiter.limit("10 per minute")
+@limiter.limit("60 per minute")
 @authorize_request
 def recommend_outfits() -> ResponseReturnValue:
     data: dict = request.get_json(silent=True) or {}
@@ -150,7 +150,7 @@ def recommend_outfits() -> ResponseReturnValue:
 
 
 @outfits.route("/generate", methods=["POST"])
-@limiter.limit("10 per minute")
+@limiter.limit("60 per minute")
 @authorize_request
 def generate_outfits() -> ResponseReturnValue:
     data: dict = request.get_json(silent=True) or {}

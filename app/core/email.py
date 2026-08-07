@@ -1,6 +1,8 @@
 __all__ = [
     "send_verification_email",
     "send_password_reset_email",
+    "deliver_email",
+    "EMAIL_QUEUE_NAME",
     "EmailSendError",
 ]
 
@@ -10,8 +12,10 @@ from typing import Optional, Union
 
 import resend
 from flask import render_template
+from redis import Redis
 from resend import Attachment, RemoteAttachment, Tag
 from resend.http_client_requests import RequestsClient
+from rq import Queue, Retry
 
 from app.core.logging import get_logger
 
@@ -32,15 +36,63 @@ if EMAIL_ENABLED and not RESEND_API_KEY:
 
 RESEND_TIMEOUT_SECONDS = 10
 
+EMAIL_QUEUE_NAME = "emails"
+REDIS_URI = getenv("REDIS_URI", "redis://localhost:6379")
+
 if EMAIL_ENABLED:
     resend.api_key = RESEND_API_KEY
     resend.default_http_client = RequestsClient(timeout=RESEND_TIMEOUT_SECONDS)
+
+_email_queue = Queue(
+    EMAIL_QUEUE_NAME,
+    connection=Redis.from_url(REDIS_URI, socket_connect_timeout=2, socket_timeout=5),
+)
 
 
 class EmailSendError(Exception):
     """Raised when an email fails to send."""
 
     pass
+
+
+def deliver_email(payload: dict) -> Optional[str]:
+    """
+    RQ job: hand a fully rendered email to Resend.
+
+    Raising propagates to RQ so the job is retried; the templates are already
+    rendered by the caller, so this runs without a Flask application context.
+    """
+    return send_email(**payload)
+
+
+def _enqueue_email(
+    to: str,
+    subject: str,
+    html: str,
+    text: str,
+    tags: list[Tag],
+) -> Optional[str]:
+    """
+    Hands a rendered email to the background queue.
+
+    Delivery is deliberately kept out of the request: Resend being slow or
+    unavailable must not occupy a worker thread, and a transient failure has to
+    be retried rather than lost.
+    """
+    if not EMAIL_ENABLED:
+        logger.debug("Email sending is disabled. Skipping email.")
+        return None
+
+    job = _email_queue.enqueue(
+        "app.core.email.deliver_email",
+        {"to": to, "subject": subject, "html": html, "text": text, "tags": tags},
+        retry=Retry(max=3, interval=[30, 120, 600]),
+        job_timeout=60,
+        result_ttl=3600,
+        failure_ttl=7 * 24 * 3600,
+    )
+
+    return job.id
 
 
 def send_email(
@@ -129,7 +181,7 @@ def send_verification_email(
     expiry_hours: int,
 ) -> Optional[str]:
     """
-    Send an email-verification email with the brand logo as inline attachment.
+    Queue an email-verification email for background delivery.
 
     Renders the HTML and plain-text templates for the given locale, falling
     back to DEFAULT_LOCALE if locale is unsupported.
@@ -138,9 +190,7 @@ def send_verification_email(
     :param locale: Target locale ('en' or 'de'). Falls back to default if unsupported.
     :param verification_link: The full URL the user should click to verify.
     :param expiry_hours: How many hours until the verification link expires.
-    :param user_name: Optional user name for personalized greeting.
-    :return: Resend email ID on success, None if email sending is disabled.
-    :raises EmailSendError: If sending fails.
+    :return: Queued job ID, None if email sending is disabled.
     """
     resolved_locale = locale if locale in SUPPORTED_LOCALES else DEFAULT_LOCALE
 
@@ -161,16 +211,15 @@ def send_verification_email(
     )
 
     subject = render_template(
-        f"/verification/subject.{locale}.txt",
+        f"/verification/subject.{resolved_locale}.txt",
         **template_vars,
     ).strip()
 
-    return send_email(
+    return _enqueue_email(
         to=user_email,
         subject=subject,
         html=html,
         text=text,
-        attachments=[],
         tags=[{"name": "category", "value": "verification"}],
     )
 
@@ -182,7 +231,7 @@ def send_password_reset_email(
     expiry_hours: int,
 ) -> Optional[str]:
     """
-    Send a password-reset email containing a one-time reset link.
+    Queue a password-reset email containing a one-time reset link.
 
     Renders the HTML and plain-text templates for the given locale, falling
     back to DEFAULT_LOCALE if locale is unsupported.
@@ -191,8 +240,7 @@ def send_password_reset_email(
     :param locale: Target locale ('en' or 'de'). Falls back to default if unsupported.
     :param reset_link: The full URL the user should open to choose a new password.
     :param expiry_hours: How many hours until the reset link expires.
-    :return: Resend email ID on success, None if email sending is disabled.
-    :raises EmailSendError: If sending fails.
+    :return: Queued job ID, None if email sending is disabled.
     """
     resolved_locale = locale if locale in SUPPORTED_LOCALES else DEFAULT_LOCALE
 
@@ -217,11 +265,10 @@ def send_password_reset_email(
         **template_vars,
     ).strip()
 
-    return send_email(
+    return _enqueue_email(
         to=user_email,
         subject=subject,
         html=html,
         text=text,
-        attachments=[],
         tags=[{"name": "category", "value": "password_reset"}],
     )
