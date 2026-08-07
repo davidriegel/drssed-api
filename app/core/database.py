@@ -8,6 +8,7 @@ from sqlspec import SQLSpec
 from sqlspec.adapters.pymysql import PyMysqlConfig
 
 from app.core.logging import get_logger
+from app.utils.exceptions import DomainError
 
 logger = get_logger()
 
@@ -77,5 +78,7 @@ def get_session() -> Generator:
                     f"Failed to rollback transaction: {rollback_error}",
                     exc_info=True,
                 )
-        logger.error(f"Database session failed: {e}", exc_info=True)
+        # A rejected request travelling through the session is not a database failure.
+        if not isinstance(e, DomainError):
+            logger.error(f"Database session failed: {e}", exc_info=True)
         raise
