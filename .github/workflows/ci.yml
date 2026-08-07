@@ -29,3 +29,63 @@ jobs:
 
       - name: Run pre-commit
         run: pre-commit run --all-files
+
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: drssed_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=3s
+          --health-retries=5
+
+    env:
+      DATABASE_HOST: 127.0.0.1
+      DATABASE_PORT: "3306"
+      DATABASE_USERNAME: root
+      DATABASE_PASSWORD: root
+      DATABASE_NAME: drssed_test
+      REDIS_URI: redis://127.0.0.1:6379
+      SECRET_TOKEN_KEY: kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk
+      RATELIMITER_ENABLED: "False"
+      EMAIL_ENABLED: "False"
+      DISABLE_SCHEDULER: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libjpeg-dev zlib1g-dev
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run migrations
+        run: sqlspec upgrade --no-prompt
+
+      - name: Run tests
+        run: pytest -q

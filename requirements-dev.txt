@@ -2,3 +2,4 @@
 ruff==0.15.22
 mypy==2.3.0
 pre-commit==4.6.0
+pytest==8.4.2
