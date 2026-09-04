@@ -100,6 +100,8 @@ services:
       env_file: .env
       volumes:
         - ./:/app
+        - model_cache_dev:/root/.cache
+        - u2net_models_dev:/root/.u2net
       depends_on:
         redis:
           condition: service_healthy
@@ -138,3 +140,5 @@ networks:
 volumes:
   mysql_data_dev:
   redis_data_dev:
+  model_cache_dev:
+  u2net_models_dev:
