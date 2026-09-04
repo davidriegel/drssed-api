@@ -25,6 +25,11 @@ RUN mkdir -p logs \
 
 RUN chmod +x docker-entrypoint.sh
 
+# Passed in from the release tag by the build workflow. Declared this late so a
+# version bump alone cannot invalidate the dependency layers above it.
+ARG APP_VERSION=unknown
+ENV APP_VERSION=${APP_VERSION}
+
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
