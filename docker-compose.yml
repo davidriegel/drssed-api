@@ -104,6 +104,11 @@ services:
       - ./app/static:/app/app/static
       - ./app/uploads:/app/app/uploads
       - ./logs:/app/logs
+      # The worker downloads its models on first import and on first job. Without
+      # these the caches live in the container layer, so every deploy recreates the
+      # container, wipes them and leaves uploads queued until the models are back.
+      - model_cache:/root/.cache
+      - u2net_models:/root/.u2net
     depends_on:
       redis:
         condition: service_healthy
@@ -144,3 +149,5 @@ networks:
 volumes:
   mysql_data:
   redis_data:
+  model_cache:
+  u2net_models:
